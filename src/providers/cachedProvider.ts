@@ -13,17 +13,21 @@ interface CachedProviderOptions {
   onCacheEvent?: (event: CacheEvent) => void;
 }
 
+const FRONTEND_CACHE_NAMESPACE = "edgefinder:v2";
+
 export function createCachedSportsDataProvider(
   source: SportsDataProvider,
   options: CachedProviderOptions
 ): SportsDataProvider {
   return {
     async listFixtures() {
-      return cached<Fixture[]>("fixtures:upcoming", options, () => source.listFixtures());
+      return cached<Fixture[]>(`${FRONTEND_CACHE_NAMESPACE}:fixtures:upcoming`, options, () => source.listFixtures());
     },
 
     async getFixture(id: string) {
-      return cached<Fixture | undefined>(`fixture:${id}`, options, () => source.getFixture(id));
+      return cached<Fixture | undefined>(`${FRONTEND_CACHE_NAMESPACE}:fixture:${id}`, options, () =>
+        source.getFixture(id)
+      );
     }
   };
 }
