@@ -24,7 +24,7 @@ export class LiveFixtureService {
 
   async listFixtures() {
     return this.deps.cache.getOrSet(
-      `live:fixtures:v2:${serverConfig.apiFootballLeagueId}:${serverConfig.apiFootballSeason}:${serverConfig.oddsSport}`,
+      `live:fixtures:v3:${serverConfig.apiFootballLeagueId}:${serverConfig.apiFootballSeason}:${serverConfig.oddsSport}`,
       FIXTURE_LIST_TTL_MS,
       async () => {
         if (!this.football || !this.odds) {
@@ -46,7 +46,7 @@ export class LiveFixtureService {
 
           const oddsEvents = oddsEnvelope.data;
           if (fixtureEnvelope.response.length === 0) {
-            return mockProvider.listFixtures();
+            return oddsEvents.length > 0 ? oddsEvents.map(mapOddsEventFixture) : mockProvider.listFixtures();
           }
 
           return fixtureEnvelope.response.map((fixture) => mapFixture(fixture, matchOddsEvent(fixture, oddsEvents)));
@@ -60,6 +60,11 @@ export class LiveFixtureService {
 
   async getFixture(id: string) {
     return this.deps.cache.getOrSet(`live:fixture:${id}`, FIXTURE_DETAIL_TTL_MS, async () => {
+      if (id.startsWith("odds-api:")) {
+        const fixtures = await this.listFixtures();
+        return fixtures.value.find((fixture) => fixture.id === id);
+      }
+
       if (!this.football || !id.startsWith("api-football:")) {
         return mockProvider.getFixture(id);
       }
@@ -133,6 +138,20 @@ export class LiveFixtureService {
   }
 }
 
+function mapOddsEventFixture(event: OddsApiEvent): Fixture {
+  const marketOdds = extractOddsEventMarketOdds(event);
+  return {
+    id: `odds-api:${event.id}`,
+    competition: event.sport_title,
+    kickoff: event.commence_time,
+    venue: "TBC",
+    home: createTeamSnapshotFromOdds(event.home_team, true, marketOdds.home),
+    away: createTeamSnapshotFromOdds(event.away_team, false, marketOdds.away),
+    marketOdds,
+    headToHead: []
+  };
+}
+
 function mapFixture(fixture: ApiFootballFixtureSummary, oddsEvent?: OddsApiEvent): Fixture {
   const marketOdds = extractMarketOdds(fixture, oddsEvent);
   const home = createTeamSnapshot(fixture.teams.home.id, fixture.teams.home.name, true, marketOdds.home);
@@ -157,6 +176,21 @@ function createTeamSnapshot(id: number, name: string, isHome: boolean, winOdds: 
 
   return {
     id: String(id),
+    name,
+    attackRating,
+    defenceRating,
+    form: createNeutralForm(attackRating, defenceRating),
+    players: createPlaceholderPlayers(name)
+  };
+}
+
+function createTeamSnapshotFromOdds(name: string, isHome: boolean, winOdds: number): TeamSnapshot {
+  const impliedStrength = Math.min(Math.max(1 / winOdds, 0.18), 0.62);
+  const attackRating = 1.05 + impliedStrength * 1.25 + (isHome ? 0.08 : 0);
+  const defenceRating = 0.88 + impliedStrength * 0.58;
+
+  return {
+    id: slugify(name),
     name,
     attackRating,
     defenceRating,
@@ -209,6 +243,22 @@ function extractMarketOdds(fixture: ApiFootballFixtureSummary, oddsEvent?: OddsA
   const totals = findMarket(oddsEvent, "totals");
   const home = h2h?.outcomes.find((outcome) => sameTeam(outcome.name, fixture.teams.home.name))?.price ?? 2.1;
   const away = h2h?.outcomes.find((outcome) => sameTeam(outcome.name, fixture.teams.away.name))?.price ?? 3.4;
+  const draw = h2h?.outcomes.find((outcome) => outcome.name.toLowerCase() === "draw")?.price ?? 3.3;
+  const over25 = totals?.outcomes.find((outcome) => outcome.name.toLowerCase() === "over" && outcome.point === 2.5)?.price;
+
+  return {
+    home,
+    draw,
+    away,
+    over25
+  };
+}
+
+function extractOddsEventMarketOdds(oddsEvent: OddsApiEvent): Fixture["marketOdds"] {
+  const h2h = findMarket(oddsEvent, "h2h");
+  const totals = findMarket(oddsEvent, "totals");
+  const home = h2h?.outcomes.find((outcome) => sameTeam(outcome.name, oddsEvent.home_team))?.price ?? 2.1;
+  const away = h2h?.outcomes.find((outcome) => sameTeam(outcome.name, oddsEvent.away_team))?.price ?? 3.4;
   const draw = h2h?.outcomes.find((outcome) => outcome.name.toLowerCase() === "draw")?.price ?? 3.3;
   const over25 = totals?.outcomes.find((outcome) => outcome.name.toLowerCase() === "over" && outcome.point === 2.5)?.price;
 
