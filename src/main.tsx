@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { Activity, CalendarDays, Database, Goal, ShieldCheck, Target, TrendingUp, Trophy } from "lucide-react";
-import { mockProvider } from "./providers/mockProvider";
+import { backendProvider } from "./providers/backendProvider";
 import { createCachedSportsDataProvider, type CacheEvent } from "./providers/cachedProvider";
 import { analyseFixture, formatPercent } from "./model/probability";
 import type { Fixture, MarketSelection } from "./types";
@@ -17,7 +17,7 @@ function App() {
 
   const fixtureProvider = React.useMemo(
     () =>
-      createCachedSportsDataProvider(mockProvider, {
+      createCachedSportsDataProvider(backendProvider, {
         ttlMs: CACHE_TTL_MS,
         onCacheEvent: setCacheEvent
       }),

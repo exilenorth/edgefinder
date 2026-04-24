@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "noEmit": true
+  },
+  "include": ["server/**/*.ts", "src/types.ts", "src/providers/apiFootballClient.ts", "src/providers/theOddsApiClient.ts", "src/providers/mockProvider.ts", "src/providers/sportsDataProvider.ts"]
+}

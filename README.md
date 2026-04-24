@@ -17,15 +17,22 @@ VITE_THE_ODDS_API_KEY=...
 VITE_API_FOOTBALL_KEY=...
 ```
 
+For API-Football league seasons, use the season start year. For example, the 2025/26 Premier League season is `2025`.
+
 Run the app:
 
 ```bash
 npm run dev
 ```
 
+This starts both services:
+
+- Frontend: `http://127.0.0.1:5173`
+- Backend API proxy: `http://127.0.0.1:8787`
+
 ## Data Providers
 
-The app currently renders from `mockProvider`, wrapped in the IndexedDB cache. Live clients are scaffolded for:
+The app renders through `backendProvider`, which calls local `/api` endpoints. The backend owns the live provider calls and falls back to mock fixtures if live data is unavailable.
 
 - The Odds API: `src/providers/theOddsApiClient.ts`
 - API-Football: `src/providers/apiFootballClient.ts`
@@ -34,7 +41,7 @@ Keep API keys out of committed source. For a deployed app, move live API calls b
 
 ## Caching Strategy
 
-The browser cache lives in IndexedDB under `edgefinder-cache`. Provider responses are stored with an expiry timestamp and read before the source provider is called.
+The frontend keeps a short IndexedDB cache under `edgefinder-cache` to avoid repeated UI fetches. The backend also stores provider responses in a local SQLite-compatible cache file under `data/edgefinder-cache.sqlite`, which keeps API keys and rate-limit protection on the server side.
 
 Suggested TTLs when live data is wired:
 
