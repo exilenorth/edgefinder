@@ -729,7 +729,8 @@ button {
 }
 
 .formation-card,
-.manager-card {
+.manager-card,
+.stadium-card {
   min-height: 128px;
   border: 1px solid #d7dde3;
   border-radius: 8px;
@@ -743,13 +744,22 @@ button {
 .formation-card span,
 .formation-card small,
 .manager-card span,
-.manager-card small {
+.manager-card small,
+.stadium-card span,
+.stadium-card small {
   color: #667789;
 }
 
 .formation-card strong,
-.manager-card strong {
+.manager-card strong,
+.stadium-card strong {
   font-size: 1.45rem;
+}
+
+.venue-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .lineup-list,
@@ -1130,6 +1140,7 @@ dd {
   .scoreline-grid,
   .team-metrics,
   .position-grid,
+  .venue-facts,
   .league-card dl {
     grid-template-columns: 1fr;
   }

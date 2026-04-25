@@ -29,7 +29,7 @@ type FixtureFilter = "all" | "following";
 type DateFilter = "all" | "today" | "next24" | "weekend";
 type AppView = "fixtures" | "stats";
 type StatsTab = "leagues" | "teams";
-type TeamInsightTab = "overview" | "squad" | "lineups" | "manager" | "fixtures";
+type TeamInsightTab = "overview" | "squad" | "lineups" | "manager" | "stadium" | "fixtures";
 
 interface FollowState {
   teams: string[];
@@ -760,6 +760,7 @@ function TeamDetail({
           ["squad", "Squad"],
           ["lineups", "Lineups"],
           ["manager", "Manager"],
+          ["stadium", "Stadium"],
           ["fixtures", "Fixtures"]
         ].map(([id, label]) => (
           <button
@@ -946,6 +947,44 @@ function TeamDetail({
               <div>
                 <strong>Home/away split</strong>
                 <span>Derived from `/fixtures` results by venue side.</span>
+              </div>
+            </div>
+          </Panel>
+        </section>
+      ) : null}
+
+      {activeTab === "stadium" ? (
+        <section className="detail-grid">
+          <Panel title="Stadium Profile" icon={<Trophy size={18} />}>
+            <div className="stadium-card">
+              <span>Home ground</span>
+              <strong>{nextFixture?.venue && nextFixture.venue !== "TBC" ? nextFixture.venue : "Venue not loaded"}</strong>
+              <small>Connect API-Football `/venues` or team venue metadata for full stadium details.</small>
+            </div>
+          </Panel>
+
+          <Panel title="Venue Facts" icon={<Database size={18} />}>
+            <div className="venue-facts">
+              <Metric label="Capacity" value="Not loaded" />
+              <Metric label="Opened" value="Not loaded" />
+              <Metric label="Roof" value="Not loaded" />
+              <Metric label="Surface" value="Not loaded" />
+            </div>
+          </Panel>
+
+          <Panel title="Stadium Intelligence Needed" icon={<ShieldCheck size={18} />} wide>
+            <div className="data-requirements">
+              <div>
+                <strong>Capacity and location</strong>
+                <span>Use `/venues?id=VENUE_ID` or venue metadata returned by `/teams`.</span>
+              </div>
+              <div>
+                <strong>Opened year, roof, and surface</strong>
+                <span>API-Football may not expose every field, so keep these nullable and support enrichment later.</span>
+              </div>
+              <div>
+                <strong>Betting relevance</strong>
+                <span>Track home advantage, pitch/surface notes, weather exposure, and travel context.</span>
               </div>
             </div>
           </Panel>
