@@ -21,10 +21,13 @@ import { createCachedSportsDataProvider, type CacheEvent } from "./providers/cac
 import { analyseFixture, formatPercent } from "./model/probability";
 import type { Fixture, MarketSelection, TeamDossier, TeamSnapshot } from "./types";
 import { findClubProfile, getClubCrestUrl, getLeagueLogoUrl } from "./data/eplClubProfiles";
+import { apiConfig } from "./config/apiConfig";
 import "./styles.css";
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const FOLLOW_STORAGE_KEY = "edgefinder:follows:v1";
+const DEFAULT_STATS_SEASON = apiConfig.apiFootballSeason;
+const STATS_SEASON_OPTIONS = Array.from({ length: 4 }, (_, index) => DEFAULT_STATS_SEASON - index);
 
 type FixtureFilter = "all" | "following";
 type DateFilter = "all" | "today" | "next24" | "weekend";
@@ -508,6 +511,7 @@ function StatsWorkspace({
   const [statsTab, setStatsTab] = React.useState<StatsTab>("leagues");
   const [query, setQuery] = React.useState("");
   const [followedOnly, setFollowedOnly] = React.useState(false);
+  const [selectedSeason, setSelectedSeason] = React.useState(DEFAULT_STATS_SEASON);
   const [selectedLeagueName, setSelectedLeagueName] = React.useState(leagueSummaries[0]?.name ?? "");
   const [selectedTeamKey, setSelectedTeamKey] = React.useState(
     teamSummaries[0] ? getTeamSummaryKey(teamSummaries[0]) : ""
@@ -576,6 +580,16 @@ function StatsWorkspace({
           <Star size={16} fill={followedOnly ? "currentColor" : "none"} aria-hidden="true" />
           Followed only
         </button>
+        <label className="season-select">
+          <span>Season</span>
+          <select value={selectedSeason} onChange={(event) => setSelectedSeason(Number(event.target.value))}>
+            {STATS_SEASON_OPTIONS.map((season) => (
+              <option value={season} key={season}>
+                {formatSeasonLabel(season)}
+              </option>
+            ))}
+          </select>
+        </label>
       </section>
 
       <section className="stats-centre">
@@ -654,6 +668,7 @@ function StatsWorkspace({
             <TeamDetail
               summary={selectedTeam}
               followed={followedTeamIds.has(selectedTeam.team.id)}
+              selectedSeason={selectedSeason}
               onToggleFollow={() => onToggleTeam(selectedTeam.team)}
             />
           ) : (
@@ -753,10 +768,12 @@ function LeagueDetail({
 function TeamDetail({
   summary,
   followed,
+  selectedSeason,
   onToggleFollow
 }: {
   summary: TeamSummary;
   followed: boolean;
+  selectedSeason: number;
   onToggleFollow: () => void;
 }) {
   const { team, league, fixtureCount, nextFixture } = summary;
@@ -780,7 +797,12 @@ function TeamDetail({
 
     let cancelled = false;
     setDossierLoading(true);
-    fetch(`/api/teams/${apiTeamId}/dossier?name=${encodeURIComponent(team.name)}`)
+    const params = new URLSearchParams({
+      name: team.name,
+      season: String(selectedSeason)
+    });
+
+    fetch(`/api/teams/${apiTeamId}/dossier?${params.toString()}`)
       .then((response) => {
         if (!response.ok) throw new Error(`Team dossier request failed: ${response.status}`);
         return response.json() as Promise<TeamDossier>;
@@ -799,7 +821,7 @@ function TeamDetail({
     return () => {
       cancelled = true;
     };
-  }, [apiTeamId, team.name]);
+  }, [apiTeamId, selectedSeason, team.name]);
 
   return (
     <>
@@ -809,6 +831,7 @@ function TeamDetail({
           <div>
             <p>{league}</p>
             <h2>{team.name}</h2>
+            <span className="season-chip">Viewing {formatSeasonLabel(selectedSeason)}</span>
           </div>
         </div>
         <FollowButton label={team.name} active={followed} onClick={onToggleFollow} />
@@ -920,7 +943,7 @@ function TeamDetail({
                   <strong>{dossierLoading ? "Loading live dossier" : dossier?.dataStatus.source ?? "Fixture snapshot"}</strong>
                   <span>
                     {dossier
-                      ? `API-Football season ${dossier.dataStatus.season}, refreshed ${formatDateTime(dossier.dataStatus.refreshedAt)}.`
+                      ? `Requested ${formatSeasonLabel(selectedSeason)}. API-Football returned ${formatSeasonLabel(dossier.dataStatus.season)}, refreshed ${formatDateTime(dossier.dataStatus.refreshedAt)}.`
                       : apiTeamId
                         ? "Waiting for cached API-Football team dossier."
                         : "No numeric API-Football team id available for this team yet."}
@@ -1552,6 +1575,10 @@ function formatDate(value: string) {
     day: "2-digit",
     month: "short"
   }).format(new Date(value));
+}
+
+function formatSeasonLabel(season: number) {
+  return `${season}/${String(season + 1).slice(-2)}`;
 }
 
 function formatNumber(value: number) {

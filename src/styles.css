@@ -518,7 +518,7 @@ button {
 
 .stats-toolbar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
   gap: 12px;
 }
 
@@ -562,6 +562,34 @@ button {
   border-color: #40c8a4;
   background: #f3fffb;
   color: #1f9d72;
+}
+
+.season-select {
+  min-height: 46px;
+  border: 1px solid #d7dde3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #667789;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.season-select span {
+  font-weight: 800;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+.season-select select {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #17202a;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
 }
 
 .stats-centre {
@@ -670,6 +698,18 @@ button {
   margin-top: 4px;
   font-size: clamp(1.6rem, 3vw, 2.8rem);
   line-height: 1;
+}
+
+.season-chip {
+  display: inline-flex;
+  margin-top: 8px;
+  border: 1px solid #d7dde3;
+  border-radius: 999px;
+  background: #f5f7f9;
+  color: #526272;
+  padding: 5px 9px;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .detail-metrics {
