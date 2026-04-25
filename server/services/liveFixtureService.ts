@@ -163,6 +163,9 @@ function mapFixture(fixture: ApiFootballFixtureSummary, oddsEvent?: OddsApiEvent
     competitionLogoUrl: fixture.league.logo,
     kickoff: fixture.fixture.date,
     venue: fixture.fixture.venue?.name ?? "TBC",
+    venueImageUrl: fixture.fixture.venue?.id
+      ? `https://media.api-sports.io/football/venues/${fixture.fixture.venue.id}.png`
+      : undefined,
     home,
     away,
     marketOdds,

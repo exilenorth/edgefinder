@@ -766,6 +766,7 @@ function TeamDetail({
   const positionCounts = getPositionCounts(team.players);
   const clubProfile = findClubProfile(team.id, team.name);
   const crestUrl = getTeamLogoUrl(team);
+  const stadiumImageUrl = getStadiumImageUrl(summary);
 
   return (
     <>
@@ -1009,6 +1010,7 @@ function TeamDetail({
         <section className="detail-grid">
           <Panel title="Stadium Profile" icon={<Trophy size={18} />}>
             <div className="stadium-card">
+              {stadiumImageUrl ? <img className="stadium-image" src={stadiumImageUrl} alt="" aria-hidden="true" loading="lazy" /> : null}
               <span>Home ground</span>
               <strong>
                 {clubProfile?.stadium.name ??
@@ -1184,6 +1186,11 @@ function LogoMark({ src, label, size = "medium" }: { src?: string; label: string
 
 function getTeamLogoUrl(team: TeamSnapshot) {
   return team.logoUrl ?? getClubCrestUrl(findClubProfile(team.id, team.name));
+}
+
+function getStadiumImageUrl(summary: TeamSummary) {
+  const profile = findClubProfile(summary.team.id, summary.team.name);
+  return profile?.media?.stadiumImageUrl ?? summary.fixtures.find((fixture) => Boolean(fixture.venueImageUrl))?.venueImageUrl;
 }
 
 function getInitials(label: string) {
