@@ -29,6 +29,7 @@ type FixtureFilter = "all" | "following";
 type DateFilter = "all" | "today" | "next24" | "weekend";
 type AppView = "fixtures" | "stats";
 type StatsTab = "leagues" | "teams";
+type TeamInsightTab = "overview" | "squad" | "lineups" | "manager" | "fixtures";
 
 interface FollowState {
   teams: string[];
@@ -53,6 +54,7 @@ interface TeamSummary {
   league: string;
   fixtureCount: number;
   nextFixture?: Fixture;
+  fixtures: Fixture[];
 }
 
 interface FixtureGroup {
@@ -737,6 +739,10 @@ function TeamDetail({
   onToggleFollow: () => void;
 }) {
   const { team, league, fixtureCount, nextFixture } = summary;
+  const [activeTab, setActiveTab] = React.useState<TeamInsightTab>("overview");
+  const probableFormation = estimateFormation(team.players);
+  const likelyStarters = team.players.filter((player) => player.startsLikely);
+  const positionCounts = getPositionCounts(team.players);
 
   return (
     <>
@@ -748,59 +754,106 @@ function TeamDetail({
         <FollowButton label={team.name} active={followed} onClick={onToggleFollow} />
       </header>
 
-      <section className="detail-metrics" aria-label={`${team.name} overview`}>
-        <Metric label="Attack rating" value={team.attackRating.toFixed(2)} />
-        <Metric label="Defence rating" value={team.defenceRating.toFixed(2)} />
-        <Metric label="Upcoming fixtures" value={String(fixtureCount)} />
-        <Metric label="Follow status" value={followed ? "Following" : "Open"} />
-      </section>
+      <nav className="detail-tabs" aria-label={`${team.name} detail sections`}>
+        {[
+          ["overview", "Overview"],
+          ["squad", "Squad"],
+          ["lineups", "Lineups"],
+          ["manager", "Manager"],
+          ["fixtures", "Fixtures"]
+        ].map(([id, label]) => (
+          <button
+            className={activeTab === id ? "is-active" : ""}
+            type="button"
+            onClick={() => setActiveTab(id as TeamInsightTab)}
+            key={id}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
 
-      <section className="detail-grid">
-        <Panel title="Form Profile" icon={<TrendingUp size={18} />}>
-          <div>
-            <div className="form-badges">
-              {team.form.results.map((result, index) => (
-                <span className={`form-badge ${result.toLowerCase()}`} key={`${team.id}-detail-${index}`}>
-                  {result}
-                </span>
+      {activeTab === "overview" ? (
+        <>
+          <section className="detail-metrics" aria-label={`${team.name} overview`}>
+            <Metric label="Attack rating" value={team.attackRating.toFixed(2)} />
+            <Metric label="Defence rating" value={team.defenceRating.toFixed(2)} />
+            <Metric label="Upcoming fixtures" value={String(fixtureCount)} />
+            <Metric label="Follow status" value={followed ? "Following" : "Open"} />
+          </section>
+
+          <section className="detail-grid">
+            <Panel title="Form Profile" icon={<TrendingUp size={18} />}>
+              <div>
+                <div className="form-badges">
+                  {team.form.results.map((result, index) => (
+                    <span className={`form-badge ${result.toLowerCase()}`} key={`${team.id}-detail-${index}`}>
+                      {result}
+                    </span>
+                  ))}
+                </div>
+                <dl>
+                  <div>
+                    <dt>Goals for</dt>
+                    <dd>{team.form.goalsFor}</dd>
+                  </div>
+                  <div>
+                    <dt>Goals against</dt>
+                    <dd>{team.form.goalsAgainst}</dd>
+                  </div>
+                  <div>
+                    <dt>Last 5 xG</dt>
+                    <dd>{team.form.xgFor.toFixed(1)}</dd>
+                  </div>
+                  <div>
+                    <dt>Last 5 xGA</dt>
+                    <dd>{team.form.xgAgainst.toFixed(1)}</dd>
+                  </div>
+                </dl>
+              </div>
+            </Panel>
+
+            <Panel title="Next Fixture" icon={<CalendarDays size={18} />}>
+              {nextFixture ? (
+                <div className="next-fixture-card">
+                  <span>{formatDateTime(nextFixture.kickoff)}</span>
+                  <strong>
+                    {nextFixture.home.name} v {nextFixture.away.name}
+                  </strong>
+                  <small>{nextFixture.venue}</small>
+                </div>
+              ) : (
+                <div className="stats-empty">No upcoming fixture loaded.</div>
+              )}
+            </Panel>
+          </section>
+        </>
+      ) : null}
+
+      {activeTab === "squad" ? (
+        <section className="detail-grid">
+          <Panel title="Squad Composition" icon={<Activity size={18} />}>
+            <div className="position-grid">
+              {positionCounts.map(({ position, count }) => (
+                <Metric label={position} value={String(count)} key={position} />
               ))}
             </div>
-            <dl>
-              <div>
-                <dt>Goals for</dt>
-                <dd>{team.form.goalsFor}</dd>
-              </div>
-              <div>
-                <dt>Goals against</dt>
-                <dd>{team.form.goalsAgainst}</dd>
-              </div>
-              <div>
-                <dt>Last 5 xG</dt>
-                <dd>{team.form.xgFor.toFixed(1)}</dd>
-              </div>
-              <div>
-                <dt>Last 5 xGA</dt>
-                <dd>{team.form.xgAgainst.toFixed(1)}</dd>
-              </div>
-            </dl>
-          </div>
-        </Panel>
-
-        <Panel title="Next Fixture" icon={<CalendarDays size={18} />}>
-          {nextFixture ? (
-            <div className="next-fixture-card">
-              <span>{formatDateTime(nextFixture.kickoff)}</span>
-              <strong>
-                {nextFixture.home.name} v {nextFixture.away.name}
-              </strong>
-              <small>{nextFixture.venue}</small>
+            <div className="data-note">
+              Full squad depth should come from API-Football `/players/squads` and season stats from `/players`.
             </div>
-          ) : (
-            <div className="stats-empty">No upcoming fixture loaded.</div>
-          )}
-        </Panel>
+          </Panel>
 
-        <Panel title="Player Snapshot" icon={<Activity size={18} />} wide>
+          <Panel title="Availability Snapshot" icon={<ShieldCheck size={18} />}>
+            <div className="detail-metrics compact">
+              <Metric label="Players loaded" value={String(team.players.length)} />
+              <Metric label="Likely starters" value={String(likelyStarters.length)} />
+            </div>
+            <div className="data-note">
+              Injuries, suspensions, and doubts should be filled from `/injuries`.
+            </div>
+          </Panel>
+
+          <Panel title="Squad List" icon={<Activity size={18} />} wide>
           <div className="scorer-table">
             <div className="table-head">
               <span>Player</span>
@@ -819,8 +872,103 @@ function TeamDetail({
               </div>
             ))}
           </div>
-        </Panel>
-      </section>
+          </Panel>
+        </section>
+      ) : null}
+
+      {activeTab === "lineups" ? (
+        <section className="detail-grid">
+          <Panel title="Formation Profile" icon={<Target size={18} />}>
+            <div className="formation-card">
+              <span>Estimated setup</span>
+              <strong>{probableFormation}</strong>
+              <small>Based on the currently loaded player snapshot.</small>
+            </div>
+            <div className="data-note">
+              Previous formations and confirmed lineups should come from `/fixtures/lineups`.
+            </div>
+          </Panel>
+
+          <Panel title="Likely XI Snapshot" icon={<ShieldCheck size={18} />}>
+            <div className="lineup-list">
+              {likelyStarters.length > 0 ? (
+                likelyStarters.map((player) => (
+                  <div className="lineup-row" key={player.id}>
+                    <strong>{player.name}</strong>
+                    <span>{player.position}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="stats-empty">No likely starter data loaded.</div>
+              )}
+            </div>
+          </Panel>
+
+          <Panel title="Previous Lineups Needed" icon={<Database size={18} />} wide>
+            <div className="data-requirements">
+              <div>
+                <strong>Previous starting XIs</strong>
+                <span>`/fixtures/lineups?fixture={"{fixtureId}"}`</span>
+              </div>
+              <div>
+                <strong>Formation history</strong>
+                <span>Aggregate formation values from recent fixture lineups.</span>
+              </div>
+              <div>
+                <strong>Player match minutes</strong>
+                <span>`/fixtures/players?fixture={"{fixtureId}"}`</span>
+              </div>
+            </div>
+          </Panel>
+        </section>
+      ) : null}
+
+      {activeTab === "manager" ? (
+        <section className="detail-grid">
+          <Panel title="Manager Profile" icon={<Trophy size={18} />}>
+            <div className="manager-card">
+              <span>Manager</span>
+              <strong>Not loaded yet</strong>
+              <small>Connect API-Football /coachs?team=TEAM_ID to populate name, nationality, age, and career.</small>
+            </div>
+          </Panel>
+
+          <Panel title="Manager Record" icon={<TrendingUp size={18} />}>
+            <div className="data-requirements">
+              <div>
+                <strong>Current spell record</strong>
+                <span>Wins, draws, losses, goals for/against.</span>
+              </div>
+              <div>
+                <strong>Formation preference</strong>
+                <span>Derived from recent `/fixtures/lineups`.</span>
+              </div>
+              <div>
+                <strong>Home/away split</strong>
+                <span>Derived from `/fixtures` results by venue side.</span>
+              </div>
+            </div>
+          </Panel>
+        </section>
+      ) : null}
+
+      {activeTab === "fixtures" ? (
+        <section className="detail-grid">
+          <Panel title="Loaded Fixtures" icon={<CalendarDays size={18} />} wide>
+            <div className="detail-fixture-list">
+              {summary.fixtures.map((fixture) => (
+                <div className="detail-fixture-row" key={fixture.id}>
+                  <span>{formatDateTime(fixture.kickoff)}</span>
+                  <strong>
+                    {fixture.home.name} v {fixture.away.name}
+                  </strong>
+                  <small>{fixture.venue}</small>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </section>
+      ) : null}
     </>
   );
 }
@@ -991,7 +1139,8 @@ function buildTeamSummaries(fixtures: Fixture[]): TeamSummary[] {
           team,
           league: fixture.competition,
           fixtureCount: (current?.fixtureCount ?? 0) + 1,
-          nextFixture: current?.nextFixture ?? fixture
+          nextFixture: current?.nextFixture ?? fixture,
+          fixtures: [...(current?.fixtures ?? []), fixture]
         });
       });
     });
@@ -1004,6 +1153,32 @@ function buildTeamSummaries(fixtures: Fixture[]): TeamSummary[] {
 
 function getTeamSummaryKey(summary: TeamSummary) {
   return `${summary.league}:${summary.team.id}`;
+}
+
+function getPositionCounts(players: TeamSnapshot["players"]) {
+  const counts = players.reduce((current, player) => {
+    current.set(player.position, (current.get(player.position) ?? 0) + 1);
+    return current;
+  }, new Map<string, number>());
+
+  return Array.from(counts.entries())
+    .map(([position, count]) => ({ position, count }))
+    .sort((first, second) => first.position.localeCompare(second.position));
+}
+
+function estimateFormation(players: TeamSnapshot["players"]) {
+  const hasAttackingMid = players.some((player) => player.position === "AM");
+  const forwardCount = players.filter((player) => player.position === "FW").length;
+
+  if (forwardCount >= 2 && hasAttackingMid) {
+    return "4-2-3-1 / 4-4-2 hybrid";
+  }
+
+  if (forwardCount >= 2) {
+    return "4-4-2 estimate";
+  }
+
+  return "4-2-3-1 estimate";
 }
 
 function groupFixturesByDate(fixtures: Fixture[]): FixtureGroup[] {

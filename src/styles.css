@@ -618,6 +618,34 @@ button {
   gap: 10px;
 }
 
+.detail-metrics.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-tabs button {
+  min-height: 40px;
+  border: 1px solid #d7dde3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #526272;
+  cursor: pointer;
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.detail-tabs button:hover,
+.detail-tabs button.is-active {
+  border-color: #40c8a4;
+  background: #17202a;
+  color: #ffffff;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -683,6 +711,71 @@ button {
   color: #667789;
   padding: 18px;
   background: #ffffff;
+}
+
+.position-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.data-note {
+  border: 1px solid #d7dde3;
+  border-radius: 8px;
+  background: #f5f7f9;
+  color: #667789;
+  padding: 12px;
+  line-height: 1.45;
+}
+
+.formation-card,
+.manager-card {
+  min-height: 128px;
+  border: 1px solid #d7dde3;
+  border-radius: 8px;
+  background: #f5f7f9;
+  padding: 16px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.formation-card span,
+.formation-card small,
+.manager-card span,
+.manager-card small {
+  color: #667789;
+}
+
+.formation-card strong,
+.manager-card strong {
+  font-size: 1.45rem;
+}
+
+.lineup-list,
+.data-requirements {
+  display: grid;
+  gap: 8px;
+}
+
+.lineup-row,
+.data-requirements div {
+  border: 1px solid #e2e7ec;
+  border-radius: 8px;
+  background: #f5f7f9;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.lineup-row {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.lineup-row span,
+.data-requirements span {
+  color: #667789;
 }
 
 .stats-section {
@@ -1036,6 +1129,7 @@ dd {
   .xg-grid,
   .scoreline-grid,
   .team-metrics,
+  .position-grid,
   .league-card dl {
     grid-template-columns: 1fr;
   }
@@ -1043,6 +1137,7 @@ dd {
   .h2h-row,
   .detail-header,
   .detail-fixture-row,
+  .lineup-row,
   .table-head,
   .table-row,
   .team-card header {
