@@ -2,7 +2,8 @@ import type { TeamDossier } from "../../src/types";
 import {
   ApiFootballClient,
   type ApiFootballFixtureSummary,
-  type ApiFootballLineupRecord
+  type ApiFootballLineupRecord,
+  type ApiFootballSeasonPlayerRecord
 } from "../../src/providers/apiFootballClient";
 import { serverConfig } from "../config";
 
@@ -26,7 +27,7 @@ export class TeamDossierService {
     const season = query.season ?? serverConfig.apiFootballSeason;
 
     return this.deps.cache.getOrSet(
-      `team-dossier:v3:${league}:${season}:${teamId}`,
+      `team-dossier:v5:${league}:${season}:${teamId}`,
       TEAM_DOSSIER_TTL_MS,
       () => this.fetchTeamDossier(teamId, { ...query, league, season })
     );
@@ -47,13 +48,11 @@ export class TeamDossierService {
     const profile = await capture(errors, "Team profile", () =>
       this.football!.getTeams({ id: teamId }).then((envelope) => envelope.response[0])
     );
-    const squad = await capture(errors, "Squad", () =>
-      this.football!.getSquad(teamId).then((envelope) => envelope.response[0]?.players ?? [])
-    );
+    const seasonContext = await this.resolveSeasonContext(teamId, query.league, query.season, errors);
+    const squad = await this.fetchSeasonPlayers(teamId, query.league, seasonContext.season, errors);
     const coach = await capture(errors, "Coach", () =>
       this.football!.getCoachs(teamId).then((envelope) => envelope.response[0])
     );
-    const seasonContext = await this.resolveSeasonContext(teamId, query.league, query.season, errors);
     const statistics = await capture(errors, "Team statistics", () =>
       this.football!.getTeamStatistics({ team: teamId, league: query.league, season: seasonContext.season }).then((envelope) => envelope.response)
     );
@@ -88,14 +87,7 @@ export class TeamDossierService {
           }
         : undefined,
       squad:
-        squad?.map((player) => ({
-          id: player.id,
-          name: player.name,
-          age: player.age,
-          number: player.number,
-          position: player.position,
-          photo: player.photo
-        })) ?? [],
+        squad?.map((player) => mapSeasonPlayer(player, teamId, query.league, seasonContext.season)) ?? [],
       coach: coach
         ? {
             id: coach.id,
@@ -116,7 +108,7 @@ export class TeamDossierService {
       recentLineups,
       statistics,
       dataStatus: {
-        source: errors.length === 0 ? "live" : profile || squad || recentFixtures ? "partial" : "unavailable",
+        source: errors.length === 0 ? "live" : profile || squad?.length || recentFixtures.length ? "partial" : "unavailable",
         season: seasonContext.season,
         errors,
         refreshedAt: new Date().toISOString()
@@ -125,9 +117,10 @@ export class TeamDossierService {
   }
 
   private async resolveSeasonContext(teamId: number, league: number, season: number, errors: string[]) {
+    const range = getSeasonDateRange(season);
     const recentFixtures =
       (await capture(errors, "Recent fixtures", () =>
-        this.football!.listFixtures({ team: teamId, league, season, last: 8 }).then((envelope) => envelope.response)
+        this.football!.listFixtures({ team: teamId, league, season, from: range.from, to: range.to }).then((envelope) => envelope.response)
       )) ?? [];
 
     if (recentFixtures.length > 0 || season <= 1900) {
@@ -135,9 +128,16 @@ export class TeamDossierService {
     }
 
     for (let fallbackSeason = season - 1; fallbackSeason >= season - 4; fallbackSeason -= 1) {
+      const fallbackRange = getSeasonDateRange(fallbackSeason);
       const fallbackFixtures =
         (await capture(errors, `Fallback recent fixtures ${fallbackSeason}`, () =>
-          this.football!.listFixtures({ team: teamId, league, season: fallbackSeason, last: 8 }).then((envelope) => envelope.response)
+          this.football!.listFixtures({
+            team: teamId,
+            league,
+            season: fallbackSeason,
+            from: fallbackRange.from,
+            to: fallbackRange.to
+          }).then((envelope) => envelope.response)
         )) ?? [];
 
       if (fallbackFixtures.length > 0) {
@@ -147,6 +147,28 @@ export class TeamDossierService {
 
     errors.push(`No recent fixtures returned for seasons ${season}-${season - 4}. This may be plan or coverage related.`);
     return { season, recentFixtures };
+  }
+
+  private async fetchSeasonPlayers(teamId: number, league: number, season: number, errors: string[]) {
+    if (!this.football) return [];
+
+    const firstPage = await capture(errors, "Season players", () =>
+      this.football!.getPlayers({ team: teamId, league, season, page: 1 })
+    );
+
+    if (!firstPage) return [];
+
+    const totalPages = Math.min(firstPage.paging.total, 5);
+    const players = [...firstPage.response];
+
+    for (let page = 2; page <= totalPages; page += 1) {
+      const pageEnvelope = await capture(errors, `Season players page ${page}`, () =>
+        this.football!.getPlayers({ team: teamId, league, season, page })
+      );
+      players.push(...(pageEnvelope?.response ?? []));
+    }
+
+    return players;
   }
 
   private async fetchRecentLineups(teamId: number, fixtures: ApiFootballFixtureSummary[], errors: string[]) {
@@ -191,6 +213,31 @@ function mapRecentFixture(fixture: ApiFootballFixtureSummary): TeamDossier["rece
   };
 }
 
+function mapSeasonPlayer(
+  record: ApiFootballSeasonPlayerRecord,
+  teamId: number,
+  league: number,
+  season: number
+): TeamDossier["squad"][number] {
+  const stats =
+    record.statistics.find((item) => item.team?.id === teamId && item.league?.id === league && item.league?.season === season) ??
+    record.statistics.find((item) => item.team?.id === teamId && item.league?.id === league) ??
+    record.statistics[0];
+  return {
+    id: record.player.id,
+    name: record.player.name,
+    age: record.player.age,
+    number: stats?.games?.number,
+    position: stats?.games?.position,
+    photo: record.player.photo,
+    appearances: stats?.games?.appearences,
+    lineups: stats?.games?.lineups,
+    minutes: stats?.games?.minutes,
+    goals: stats?.goals?.total,
+    assists: stats?.goals?.assists
+  };
+}
+
 function mapLineup(
   fixture: ApiFootballFixtureSummary,
   lineup: ApiFootballLineupRecord,
@@ -232,5 +279,12 @@ function createUnavailableDossier(
       errors,
       refreshedAt: new Date().toISOString()
     }
+  };
+}
+
+function getSeasonDateRange(season: number) {
+  return {
+    from: `${season}-08-01`,
+    to: `${season + 1}-06-30`
   };
 }

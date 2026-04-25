@@ -1000,17 +1000,17 @@ function TeamDetail({
             <div className="table-head">
               <span>Player</span>
               <span>Position</span>
-              <span>Starts</span>
-              <span>{squadPlayers ? "Age" : "Season xG/90"}</span>
-              <span>{squadPlayers ? "Source" : "Recent xG/90"}</span>
+              <span>{squadPlayers ? "Apps" : "Starts"}</span>
+              <span>{squadPlayers ? "Goals" : "Season xG/90"}</span>
+              <span>{squadPlayers ? "Minutes" : "Recent xG/90"}</span>
             </div>
             {(squadPlayers ?? team.players).map((player) => (
               <div className="table-row" key={player.id}>
                 <span>{player.name}</span>
                 <span>{player.position ?? "n/a"}</span>
-                <strong>{"startsLikely" in player ? (player.startsLikely ? "Likely" : "Doubt") : (player.number ? `#${player.number}` : "Squad")}</strong>
-                <span>{"seasonXgPer90" in player ? player.seasonXgPer90.toFixed(2) : (player.age ? String(player.age) : "n/a")}</span>
-                <span>{"recentXgPer90" in player ? player.recentXgPer90.toFixed(2) : "API"}</span>
+                <strong>{"startsLikely" in player ? (player.startsLikely ? "Likely" : "Doubt") : String(player.appearances ?? "n/a")}</strong>
+                <span>{"seasonXgPer90" in player ? player.seasonXgPer90.toFixed(2) : String(player.goals ?? 0)}</span>
+                <span>{"recentXgPer90" in player ? player.recentXgPer90.toFixed(2) : (player.minutes ? formatNumber(player.minutes) : "n/a")}</span>
               </div>
             ))}
           </div>

@@ -82,6 +82,11 @@ export interface TeamDossier {
     number?: number;
     position?: string;
     photo?: string;
+    appearances?: number;
+    lineups?: number;
+    minutes?: number;
+    goals?: number;
+    assists?: number;
   }>;
   coach?: {
     id?: number;

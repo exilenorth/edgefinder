@@ -166,6 +166,44 @@ export interface ApiFootballPlayerStatistics {
   }>;
 }
 
+export interface ApiFootballSeasonPlayerRecord {
+  player: {
+    id: number;
+    name: string;
+    firstname?: string;
+    lastname?: string;
+    age?: number;
+    nationality?: string;
+    height?: string;
+    weight?: string;
+    injured?: boolean;
+    photo?: string;
+  };
+  statistics: Array<{
+    team?: {
+      id: number;
+      name: string;
+      logo?: string;
+    };
+    league?: {
+      id: number;
+      name: string;
+      season: number;
+    };
+    games?: {
+      number?: number;
+      position?: string;
+      appearences?: number;
+      lineups?: number;
+      minutes?: number;
+    };
+    goals?: {
+      total?: number;
+      assists?: number;
+    };
+  }>;
+}
+
 export class ApiFootballClient {
   constructor(private readonly apiKey: string) {}
 
@@ -225,7 +263,7 @@ export class ApiFootballClient {
   }
 
   async getPlayers(query: { league?: number; season: number; team?: number; player?: number; page?: number }) {
-    return this.request<unknown>("/players", query);
+    return this.request<ApiFootballSeasonPlayerRecord[]>("/players", query);
   }
 
   private async request<T>(path: string, query: Record<string, string | number | undefined>) {
