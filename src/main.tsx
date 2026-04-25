@@ -19,7 +19,7 @@ import {
 import { backendProvider } from "./providers/backendProvider";
 import { createCachedSportsDataProvider, type CacheEvent } from "./providers/cachedProvider";
 import { analyseFixture, formatPercent } from "./model/probability";
-import type { Fixture, LeagueHistoricalDossier, MarketSelection, TeamDossier, TeamSnapshot } from "./types";
+import type { Fixture, LeagueHistoricalDossier, MarketSelection, Result, TeamDossier, TeamSnapshot } from "./types";
 import { findClubProfile, getClubCrestUrl, getLeagueLogoUrl } from "./data/eplClubProfiles";
 import { apiConfig } from "./config/apiConfig";
 import "./styles.css";
@@ -28,6 +28,7 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
 const FOLLOW_STORAGE_KEY = "edgefinder:follows:v1";
 const DEFAULT_STATS_SEASON = apiConfig.apiFootballSeason;
 const STATS_SEASON_OPTIONS = Array.from({ length: 4 }, (_, index) => DEFAULT_STATS_SEASON - index);
+const CONFIGURED_LEAGUE_NAME = "Premier League";
 
 type FixtureFilter = "all" | "following";
 type DateFilter = "all" | "today" | "next24" | "weekend";
@@ -521,13 +522,31 @@ function StatsWorkspace({
     teamSummaries[0] ? getTeamSummaryKey(teamSummaries[0]) : ""
   );
 
+  const currentLeagueSummaries = React.useMemo(
+    () => leagueSummaries.filter((league) => isConfiguredLeague(league.name)),
+    [leagueSummaries]
+  );
+  const currentTeamSummaries = React.useMemo(
+    () => teamSummaries.filter((team) => isConfiguredLeague(team.league)),
+    [teamSummaries]
+  );
+  const historicalLeagueSummaries = React.useMemo(
+    () => (historicalDossier ? [buildHistoricalLeagueSummary(historicalDossier)] : []),
+    [historicalDossier]
+  );
+  const historicalTeamSummaries = React.useMemo(
+    () => (historicalDossier ? buildHistoricalTeamSummaries(historicalDossier) : []),
+    [historicalDossier]
+  );
+  const browsedLeagueSummaries = statsMode === "historical" ? historicalLeagueSummaries : currentLeagueSummaries;
+  const browsedTeamSummaries = statsMode === "historical" ? historicalTeamSummaries : currentTeamSummaries;
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredLeagues = leagueSummaries.filter((league) => {
+  const filteredLeagues = browsedLeagueSummaries.filter((league) => {
     const matchesQuery = !normalizedQuery || league.name.toLowerCase().includes(normalizedQuery);
     const matchesFollowed = !followedOnly || followedLeagues.has(league.name);
     return matchesQuery && matchesFollowed;
   });
-  const filteredTeams = teamSummaries.filter(({ team, league }) => {
+  const filteredTeams = browsedTeamSummaries.filter(({ team, league }) => {
     const matchesQuery =
       !normalizedQuery ||
       team.name.toLowerCase().includes(normalizedQuery) ||
@@ -536,21 +555,33 @@ function StatsWorkspace({
     return matchesQuery && matchesFollowed;
   });
   const selectedLeague =
-    leagueSummaries.find((league) => league.name === selectedLeagueName) ?? filteredLeagues[0] ?? leagueSummaries[0];
+    browsedLeagueSummaries.find((league) => league.name === selectedLeagueName) ?? filteredLeagues[0] ?? browsedLeagueSummaries[0];
   const selectedTeam =
-    teamSummaries.find((team) => getTeamSummaryKey(team) === selectedTeamKey) ?? filteredTeams[0] ?? teamSummaries[0];
+    browsedTeamSummaries.find((team) => getTeamSummaryKey(team) === selectedTeamKey) ?? filteredTeams[0] ?? browsedTeamSummaries[0];
 
   React.useEffect(() => {
-    if (!selectedLeagueName && leagueSummaries[0]) {
-      setSelectedLeagueName(leagueSummaries[0].name);
+    if (!selectedLeagueName && browsedLeagueSummaries[0]) {
+      setSelectedLeagueName(browsedLeagueSummaries[0].name);
     }
-  }, [leagueSummaries, selectedLeagueName]);
+  }, [browsedLeagueSummaries, selectedLeagueName]);
 
   React.useEffect(() => {
-    if (!selectedTeamKey && teamSummaries[0]) {
-      setSelectedTeamKey(getTeamSummaryKey(teamSummaries[0]));
+    if (!selectedTeamKey && browsedTeamSummaries[0]) {
+      setSelectedTeamKey(getTeamSummaryKey(browsedTeamSummaries[0]));
     }
-  }, [selectedTeamKey, teamSummaries]);
+  }, [browsedTeamSummaries, selectedTeamKey]);
+
+  React.useEffect(() => {
+    if (browsedLeagueSummaries.length > 0 && !browsedLeagueSummaries.some((league) => league.name === selectedLeagueName)) {
+      setSelectedLeagueName(browsedLeagueSummaries[0].name);
+    }
+  }, [browsedLeagueSummaries, selectedLeagueName]);
+
+  React.useEffect(() => {
+    if (browsedTeamSummaries.length > 0 && !browsedTeamSummaries.some((team) => getTeamSummaryKey(team) === selectedTeamKey)) {
+      setSelectedTeamKey(getTeamSummaryKey(browsedTeamSummaries[0]));
+    }
+  }, [browsedTeamSummaries, selectedTeamKey]);
 
   React.useEffect(() => {
     if (statsMode !== "historical") return;
@@ -585,9 +616,9 @@ function StatsWorkspace({
           <p>Stats Centre</p>
           <h1>League and team intelligence</h1>
           <div className="meta-row">
-            <span>{leagueSummaries.length} leagues</span>
-            <span>{teamSummaries.length} teams</span>
-            <span>{teamSummaries.filter((item) => followedTeamIds.has(item.team.id)).length} followed teams</span>
+            <span>{browsedLeagueSummaries.length} leagues</span>
+            <span>{browsedTeamSummaries.length} teams</span>
+            <span>{browsedTeamSummaries.filter((item) => followedTeamIds.has(item.team.id)).length} followed teams</span>
           </div>
         </div>
       </header>
@@ -692,11 +723,20 @@ function StatsWorkspace({
 
         <div className="stats-detail">
           {statsMode === "historical" ? (
-            <HistoricalLeagueDetail dossier={historicalDossier} loading={historicalLoading} selectedSeason={selectedSeason} />
+            statsTab === "teams" && selectedTeam ? (
+              <TeamDetail
+                summary={selectedTeam}
+                followed={followedTeamIds.has(selectedTeam.team.id)}
+                selectedSeason={selectedSeason}
+                onToggleFollow={() => onToggleTeam(selectedTeam.team)}
+              />
+            ) : (
+              <HistoricalLeagueDetail dossier={historicalDossier} loading={historicalLoading} selectedSeason={selectedSeason} />
+            )
           ) : statsTab === "leagues" && selectedLeague ? (
             <LeagueDetail
               league={selectedLeague}
-              teamSummaries={teamSummaries.filter((team) => team.league === selectedLeague.name)}
+              teamSummaries={browsedTeamSummaries.filter((team) => team.league === selectedLeague.name)}
               followed={followedLeagues.has(selectedLeague.name)}
               onToggleFollow={() => onToggleLeague(selectedLeague.name)}
               onSelectTeam={(team) => {
@@ -1595,6 +1635,41 @@ function buildLeagueSummaries(fixtures: Fixture[]): LeagueSummary[] {
     .sort((first, second) => first.name.localeCompare(second.name));
 }
 
+function buildHistoricalLeagueSummary(dossier: LeagueHistoricalDossier): LeagueSummary {
+  return {
+    name: dossier.league.name ?? CONFIGURED_LEAGUE_NAME,
+    logoUrl: dossier.league.logo ?? getLeagueLogoUrl(CONFIGURED_LEAGUE_NAME),
+    fixtureCount: 0,
+    teamCount: dossier.standings.length,
+    fixtures: []
+  };
+}
+
+function buildHistoricalTeamSummaries(dossier: LeagueHistoricalDossier): TeamSummary[] {
+  const leagueName = dossier.league.name ?? CONFIGURED_LEAGUE_NAME;
+
+  return dossier.standings.map((standing) => ({
+    team: {
+      id: String(standing.teamId),
+      name: standing.team,
+      logoUrl: standing.logo,
+      attackRating: estimateHistoricalAttackRating(standing),
+      defenceRating: estimateHistoricalDefenceRating(standing),
+      form: {
+        results: parseHistoricalForm(standing.form),
+        goalsFor: standing.goalsFor ?? 0,
+        goalsAgainst: standing.goalsAgainst ?? 0,
+        xgFor: standing.goalsFor ?? 0,
+        xgAgainst: standing.goalsAgainst ?? 0
+      },
+      players: []
+    },
+    league: leagueName,
+    fixtureCount: standing.played ?? 0,
+    fixtures: []
+  }));
+}
+
 function buildTeamSummaries(fixtures: Fixture[]): TeamSummary[] {
   const teams = new Map<string, TeamSummary>();
 
@@ -1619,6 +1694,29 @@ function buildTeamSummaries(fixtures: Fixture[]): TeamSummary[] {
     const leagueSort = first.league.localeCompare(second.league);
     return leagueSort !== 0 ? leagueSort : first.team.name.localeCompare(second.team.name);
   });
+}
+
+function isConfiguredLeague(leagueName: string) {
+  return leagueName.toLowerCase() === CONFIGURED_LEAGUE_NAME.toLowerCase();
+}
+
+function parseHistoricalForm(form: string | undefined): Result[] {
+  const parsed = (form ?? "")
+    .slice(-5)
+    .split("")
+    .filter((value): value is Result => value === "W" || value === "D" || value === "L");
+
+  return parsed.length > 0 ? parsed : ["D", "D", "D", "D", "D"];
+}
+
+function estimateHistoricalAttackRating(standing: LeagueHistoricalDossier["standings"][number]) {
+  const played = standing.played || 38;
+  return Math.max(0.7, Math.min(2.4, (standing.goalsFor ?? played) / played));
+}
+
+function estimateHistoricalDefenceRating(standing: LeagueHistoricalDossier["standings"][number]) {
+  const played = standing.played || 38;
+  return Math.max(0.7, Math.min(2.4, 2 - (standing.goalsAgainst ?? played) / played));
 }
 
 function getTeamSummaryKey(summary: TeamSummary) {
