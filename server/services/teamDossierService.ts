@@ -7,11 +7,13 @@ import {
   type ApiFootballTransferRecord
 } from "../../src/providers/apiFootballClient";
 import { serverConfig } from "../config";
-import { teamDossierTtl } from "./seasonCachePolicy";
+import { isCompletedSeason, teamDossierTtl } from "./seasonCachePolicy";
 
 interface TeamDossierServiceDeps {
   cache: {
     getOrSet<T>(key: string, ttlMs: number, fetchFresh: () => Promise<T>): Promise<{ value: T; source: "cache" | "live" }>;
+    getHistoricalArchive<T>(key: string): T | undefined;
+    setHistoricalArchive<T>(key: string, kind: string, value: T, completeness: "complete" | "partial"): void;
   };
 }
 
@@ -27,12 +29,27 @@ export class TeamDossierService {
   async getTeamDossier(teamId: number, query: { teamName?: string; league?: number; season?: number }) {
     const league = query.league ?? serverConfig.apiFootballLeagueId;
     const season = query.season ?? serverConfig.apiFootballSeason;
+    const archiveKey = `team:${teamId}:league:${league}:season:${season}`;
 
-    return this.deps.cache.getOrSet(
+    if (isCompletedSeason(season)) {
+      const archived = this.deps.cache.getHistoricalArchive<TeamDossier>(archiveKey);
+      if (archived) {
+        return { value: archived, source: "archive" as const };
+      }
+    }
+
+    const result = await this.deps.cache.getOrSet(
       `team-dossier:v6:${league}:${season}:${teamId}`,
       teamDossierTtl(season),
       () => this.fetchTeamDossier(teamId, { ...query, league, season })
     );
+
+    if (isCompletedSeason(season)) {
+      const completeness = isCompleteTeamDossier(result.value) ? "complete" : "partial";
+      this.deps.cache.setHistoricalArchive(archiveKey, "team-season", result.value, completeness);
+    }
+
+    return result;
   }
 
   private async fetchTeamDossier(
@@ -324,4 +341,8 @@ function getSeasonDateRange(season: number) {
     from: `${season}-08-01`,
     to: `${season + 1}-06-30`
   };
+}
+
+function isCompleteTeamDossier(dossier: TeamDossier) {
+  return dossier.squad.length > 0 && dossier.recentFixtures.length > 0;
 }

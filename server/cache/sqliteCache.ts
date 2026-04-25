@@ -7,6 +7,11 @@ interface CacheRow {
   expires_at: number;
 }
 
+interface ArchiveRow {
+  value_json: string;
+  completeness: string;
+}
+
 export class SqliteCache {
   private database?: Database;
   private sql?: SqlJsStatic;
@@ -26,6 +31,15 @@ export class SqliteCache {
         value_json TEXT NOT NULL,
         saved_at INTEGER NOT NULL,
         expires_at INTEGER NOT NULL
+      )
+    `);
+    this.database.run(`
+      CREATE TABLE IF NOT EXISTS historical_archive (
+        key TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        value_json TEXT NOT NULL,
+        completeness TEXT NOT NULL,
+        archived_at INTEGER NOT NULL
       )
     `);
     this.persist();
@@ -74,6 +88,26 @@ export class SqliteCache {
 
   delete(key: string) {
     this.assertDatabase().run("DELETE FROM response_cache WHERE key = ?", [key]);
+    this.persist();
+  }
+
+  getHistoricalArchive<T>(key: string, requiredCompleteness = "complete"): T | undefined {
+    const db = this.assertDatabase();
+    const statement = db.prepare("SELECT value_json, completeness FROM historical_archive WHERE key = ?");
+    statement.bind([key]);
+    const row = statement.step() ? (statement.getAsObject() as unknown as ArchiveRow) : undefined;
+    statement.free();
+
+    if (!row || row.completeness !== requiredCompleteness) return undefined;
+    return JSON.parse(row.value_json) as T;
+  }
+
+  setHistoricalArchive<T>(key: string, kind: string, value: T, completeness: "complete" | "partial") {
+    const db = this.assertDatabase();
+    db.run(
+      "INSERT OR REPLACE INTO historical_archive (key, kind, value_json, completeness, archived_at) VALUES (?, ?, ?, ?, ?)",
+      [key, kind, JSON.stringify(value), completeness, Date.now()]
+    );
     this.persist();
   }
 

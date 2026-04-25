@@ -6,11 +6,13 @@ import {
   type ApiFootballStandingRecord
 } from "../../src/providers/apiFootballClient";
 import { serverConfig } from "../config";
-import { coverageTtl, leagueHistoricalTtl } from "./seasonCachePolicy";
+import { coverageTtl, isCompletedSeason, leagueHistoricalTtl } from "./seasonCachePolicy";
 
 interface LeagueHistoricalServiceDeps {
   cache: {
     getOrSet<T>(key: string, ttlMs: number, fetchFresh: () => Promise<T>): Promise<{ value: T; source: "cache" | "live" }>;
+    getHistoricalArchive<T>(key: string): T | undefined;
+    setHistoricalArchive<T>(key: string, kind: string, value: T, completeness: "complete" | "partial"): void;
   };
 }
 
@@ -26,12 +28,27 @@ export class LeagueHistoricalService {
   async getHistoricalDossier(query: { league?: number; season?: number }) {
     const league = query.league ?? serverConfig.apiFootballLeagueId;
     const season = query.season ?? serverConfig.apiFootballSeason;
+    const archiveKey = `league:${league}:season:${season}`;
 
-    return this.deps.cache.getOrSet(
+    if (isCompletedSeason(season)) {
+      const archived = this.deps.cache.getHistoricalArchive<LeagueHistoricalDossier>(archiveKey);
+      if (archived) {
+        return { value: archived, source: "archive" as const };
+      }
+    }
+
+    const result = await this.deps.cache.getOrSet(
       `league-historical:v1:${league}:${season}`,
       leagueHistoricalTtl(season),
       () => this.fetchHistoricalDossier(league, season)
     );
+
+    if (isCompletedSeason(season)) {
+      const completeness = isCompleteLeagueHistoricalDossier(result.value) ? "complete" : "partial";
+      this.deps.cache.setHistoricalArchive(archiveKey, "league-season", result.value, completeness);
+    }
+
+    return result;
   }
 
   private async fetchHistoricalDossier(league: number, season: number): Promise<LeagueHistoricalDossier> {
@@ -170,4 +187,8 @@ function createUnavailableDossier(league: number, season: number, errors: string
       refreshedAt: new Date().toISOString()
     }
   };
+}
+
+function isCompleteLeagueHistoricalDossier(dossier: LeagueHistoricalDossier) {
+  return dossier.standings.length >= 10 && dossier.topScorers.length > 0 && dossier.topAssists.length > 0;
 }
