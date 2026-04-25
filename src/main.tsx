@@ -516,7 +516,7 @@ function StatsWorkspace({
       !normalizedQuery ||
       team.name.toLowerCase().includes(normalizedQuery) ||
       league.toLowerCase().includes(normalizedQuery);
-    const matchesFollowed = !followedOnly || followedTeamIds.has(team.id) || followedLeagues.has(league);
+    const matchesFollowed = !followedOnly || followedTeamIds.has(team.id);
     return matchesQuery && matchesFollowed;
   });
   const selectedLeague =
