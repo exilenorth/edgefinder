@@ -28,6 +28,29 @@ export const EPL_LEAGUE_PROFILE = {
   logoUrl: "https://media.api-sports.io/football/leagues/39.png"
 };
 
+export const CURRENT_EPL_TEAM_NAMES = [
+  "Arsenal",
+  "Aston Villa",
+  "Bournemouth",
+  "Brentford",
+  "Brighton",
+  "Burnley",
+  "Chelsea",
+  "Crystal Palace",
+  "Everton",
+  "Fulham",
+  "Leeds United",
+  "Liverpool",
+  "Manchester City",
+  "Manchester United",
+  "Newcastle United",
+  "Nottingham Forest",
+  "Sunderland",
+  "Tottenham Hotspur",
+  "West Ham United",
+  "Wolverhampton Wanderers"
+];
+
 export const eplClubProfiles: ClubProfile[] = [
   {
     aliases: ["arsenal"],
@@ -379,6 +402,14 @@ export function findClubProfile(teamId: string, teamName: string) {
     String(profile.apiFootballTeamId) === teamId ||
     profile.aliases.some((alias) => normalizedValues.includes(normalizeClubKey(alias)))
   );
+}
+
+export function getCurrentEplTeams() {
+  return eplClubProfiles.map((profile, index) => ({
+    id: String(profile.apiFootballTeamId ?? CURRENT_EPL_TEAM_NAMES[index]),
+    name: CURRENT_EPL_TEAM_NAMES[index],
+    logoUrl: getClubCrestUrl(profile)
+  }));
 }
 
 export function getClubCrestUrl(profile: ClubProfile | undefined) {

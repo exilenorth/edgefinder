@@ -20,7 +20,7 @@ import { backendProvider } from "./providers/backendProvider";
 import { createCachedSportsDataProvider, type CacheEvent } from "./providers/cachedProvider";
 import { analyseFixture, formatPercent } from "./model/probability";
 import type { Fixture, LeagueHistoricalDossier, MarketSelection, Result, TeamDossier, TeamSnapshot } from "./types";
-import { findClubProfile, getClubCrestUrl, getLeagueLogoUrl } from "./data/eplClubProfiles";
+import { findClubProfile, getClubCrestUrl, getCurrentEplTeams, getLeagueLogoUrl } from "./data/eplClubProfiles";
 import { apiConfig } from "./config/apiConfig";
 import "./styles.css";
 
@@ -28,7 +28,6 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
 const FOLLOW_STORAGE_KEY = "edgefinder:follows:v1";
 const DEFAULT_STATS_SEASON = apiConfig.apiFootballSeason;
 const STATS_SEASON_OPTIONS = Array.from({ length: 4 }, (_, index) => DEFAULT_STATS_SEASON - index);
-const CURRENT_ROSTER_FALLBACK_SEASON = DEFAULT_STATS_SEASON - 2;
 const CONFIGURED_LEAGUE_NAME = "Premier League";
 
 type FixtureFilter = "all" | "following";
@@ -517,7 +516,6 @@ function StatsWorkspace({
   const [followedOnly, setFollowedOnly] = React.useState(false);
   const [selectedSeason, setSelectedSeason] = React.useState(DEFAULT_STATS_SEASON);
   const [historicalDossier, setHistoricalDossier] = React.useState<LeagueHistoricalDossier | undefined>();
-  const [currentRosterDossier, setCurrentRosterDossier] = React.useState<LeagueHistoricalDossier | undefined>();
   const [historicalLoading, setHistoricalLoading] = React.useState(false);
   const [selectedLeagueName, setSelectedLeagueName] = React.useState(leagueSummaries[0]?.name ?? "");
   const [selectedTeamKey, setSelectedTeamKey] = React.useState(
@@ -527,18 +525,19 @@ function StatsWorkspace({
   const currentLeagueSummaries = React.useMemo(
     () => {
       const fixtureLeagues = leagueSummaries.filter((league) => isConfiguredLeague(league.name));
-      if (fixtureLeagues.some((league) => league.teamCount >= 10) || !currentRosterDossier) return fixtureLeagues;
-      return [buildHistoricalLeagueSummary(currentRosterDossier)];
+      const configuredLeague = fixtureLeagues[0];
+      if (configuredLeague?.teamCount >= 10) return fixtureLeagues;
+      return [buildCurrentEplLeagueSummary(configuredLeague)];
     },
-    [currentRosterDossier, leagueSummaries]
+    [leagueSummaries]
   );
   const currentTeamSummaries = React.useMemo(
     () => {
       const fixtureTeams = teamSummaries.filter((team) => isConfiguredLeague(team.league));
-      if (fixtureTeams.length >= 10 || !currentRosterDossier) return fixtureTeams;
-      return buildHistoricalTeamSummaries(currentRosterDossier);
+      if (fixtureTeams.length >= 10) return fixtureTeams;
+      return buildCurrentEplTeamSummaries(fixtureTeams);
     },
-    [currentRosterDossier, teamSummaries]
+    [teamSummaries]
   );
   const historicalLeagueSummaries = React.useMemo(
     () => (historicalDossier ? [buildHistoricalLeagueSummary(historicalDossier)] : []),
@@ -618,28 +617,6 @@ function StatsWorkspace({
       cancelled = true;
     };
   }, [selectedSeason, statsMode]);
-
-  React.useEffect(() => {
-    const fixtureTeams = teamSummaries.filter((team) => isConfiguredLeague(team.league));
-    if (fixtureTeams.length >= 10 || currentRosterDossier) return;
-
-    let cancelled = false;
-    fetch(`/api/leagues/${apiConfig.apiFootballLeagueId}/historical?season=${CURRENT_ROSTER_FALLBACK_SEASON}`)
-      .then((response) => {
-        if (!response.ok) throw new Error(`Current roster request failed: ${response.status}`);
-        return response.json() as Promise<LeagueHistoricalDossier>;
-      })
-      .then((dossier) => {
-        if (!cancelled) setCurrentRosterDossier(dossier);
-      })
-      .catch((error) => {
-        console.warn("Current roster fallback request failed", error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentRosterDossier, teamSummaries]);
 
   return (
     <section className="workspace stats-workspace">
@@ -1677,6 +1654,61 @@ function buildHistoricalLeagueSummary(dossier: LeagueHistoricalDossier): LeagueS
   };
 }
 
+function buildCurrentEplLeagueSummary(fixtureLeague: LeagueSummary | undefined): LeagueSummary {
+  const currentTeams = getCurrentEplTeams();
+
+  return {
+    name: CONFIGURED_LEAGUE_NAME,
+    logoUrl: fixtureLeague?.logoUrl ?? getLeagueLogoUrl(CONFIGURED_LEAGUE_NAME),
+    fixtureCount: fixtureLeague?.fixtureCount ?? 0,
+    teamCount: currentTeams.length,
+    nextKickoff: fixtureLeague?.nextKickoff,
+    fixtures: fixtureLeague?.fixtures ?? []
+  };
+}
+
+function buildCurrentEplTeamSummaries(fixtureTeams: TeamSummary[]): TeamSummary[] {
+  const teamsById = new Map(fixtureTeams.map((summary) => [summary.team.id, summary]));
+  const teamsByName = new Map(fixtureTeams.map((summary) => [normalizeTeamName(summary.team.name), summary]));
+
+  return getCurrentEplTeams().map((team) => {
+    const existing = teamsById.get(team.id) ?? teamsByName.get(normalizeTeamName(team.name));
+    if (existing) {
+      return {
+        ...existing,
+        team: {
+          ...existing.team,
+          id: team.id,
+          name: team.name,
+          logoUrl: existing.team.logoUrl ?? team.logoUrl
+        },
+        league: CONFIGURED_LEAGUE_NAME
+      };
+    }
+
+    return {
+      team: {
+        id: team.id,
+        name: team.name,
+        logoUrl: team.logoUrl,
+        attackRating: 1.2,
+        defenceRating: 1.2,
+        form: {
+          results: ["D", "D", "D", "D", "D"],
+          goalsFor: 0,
+          goalsAgainst: 0,
+          xgFor: 0,
+          xgAgainst: 0
+        },
+        players: []
+      },
+      league: CONFIGURED_LEAGUE_NAME,
+      fixtureCount: 0,
+      fixtures: []
+    };
+  });
+}
+
 function buildHistoricalTeamSummaries(dossier: LeagueHistoricalDossier): TeamSummary[] {
   const leagueName = dossier.league.name ?? CONFIGURED_LEAGUE_NAME;
 
@@ -1730,6 +1762,10 @@ function buildTeamSummaries(fixtures: Fixture[]): TeamSummary[] {
 
 function isConfiguredLeague(leagueName: string) {
   return leagueName.toLowerCase() === CONFIGURED_LEAGUE_NAME.toLowerCase();
+}
+
+function normalizeTeamName(teamName: string) {
+  return teamName.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function parseHistoricalForm(form: string | undefined): Result[] {
