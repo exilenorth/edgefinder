@@ -756,6 +756,29 @@ button {
   font-size: 1.45rem;
 }
 
+.club-profile-card {
+  display: grid;
+  gap: 10px;
+}
+
+.club-profile-card div {
+  border: 1px solid #e2e7ec;
+  border-radius: 8px;
+  background: #f5f7f9;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.club-profile-card span,
+.club-profile-card small {
+  color: #667789;
+}
+
+.club-profile-card strong {
+  font-size: 1rem;
+}
+
 .venue-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

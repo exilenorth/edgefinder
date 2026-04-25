@@ -20,6 +20,7 @@ import { backendProvider } from "./providers/backendProvider";
 import { createCachedSportsDataProvider, type CacheEvent } from "./providers/cachedProvider";
 import { analyseFixture, formatPercent } from "./model/probability";
 import type { Fixture, MarketSelection, TeamSnapshot } from "./types";
+import { findClubProfile } from "./data/eplClubProfiles";
 import "./styles.css";
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
@@ -743,6 +744,7 @@ function TeamDetail({
   const probableFormation = estimateFormation(team.players);
   const likelyStarters = team.players.filter((player) => player.startsLikely);
   const positionCounts = getPositionCounts(team.players);
+  const clubProfile = findClubProfile(team.id, team.name);
 
   return (
     <>
@@ -784,6 +786,28 @@ function TeamDetail({
           </section>
 
           <section className="detail-grid">
+            <Panel title="Club Profile" icon={<Trophy size={18} />}>
+              {clubProfile ? (
+                <div className="club-profile-card">
+                  <div>
+                    <span>Founded</span>
+                    <strong>{clubProfile.founded ?? "Unknown"}</strong>
+                  </div>
+                  <div>
+                    <span>Nickname</span>
+                    <strong>{clubProfile.nickname ?? "Unknown"}</strong>
+                  </div>
+                  <div>
+                    <span>Colours</span>
+                    <strong>{clubProfile.colours ?? "Unknown"}</strong>
+                  </div>
+                  <small>Curated profile, verified {clubProfile.lastVerified}</small>
+                </div>
+              ) : (
+                <div className="stats-empty">No curated club profile available yet.</div>
+              )}
+            </Panel>
+
             <Panel title="Form Profile" icon={<TrendingUp size={18} />}>
               <div>
                 <div className="form-badges">
@@ -958,34 +982,53 @@ function TeamDetail({
           <Panel title="Stadium Profile" icon={<Trophy size={18} />}>
             <div className="stadium-card">
               <span>Home ground</span>
-              <strong>{nextFixture?.venue && nextFixture.venue !== "TBC" ? nextFixture.venue : "Venue not loaded"}</strong>
-              <small>Connect API-Football `/venues` or team venue metadata for full stadium details.</small>
+              <strong>
+                {clubProfile?.stadium.name ??
+                  (nextFixture?.venue && nextFixture.venue !== "TBC" ? nextFixture.venue : "Venue not loaded")}
+              </strong>
+              <small>
+                {clubProfile
+                  ? `Curated EPL profile, verified ${clubProfile.lastVerified}`
+                  : "Connect API-Football /venues or team venue metadata for full stadium details."}
+              </small>
             </div>
           </Panel>
 
           <Panel title="Venue Facts" icon={<Database size={18} />}>
             <div className="venue-facts">
-              <Metric label="Capacity" value="Not loaded" />
-              <Metric label="Opened" value="Not loaded" />
-              <Metric label="Roof" value="Not loaded" />
-              <Metric label="Surface" value="Not loaded" />
+              <Metric label="Capacity" value={clubProfile?.stadium.capacity ? formatNumber(clubProfile.stadium.capacity) : "Not loaded"} />
+              <Metric label="Opened" value={clubProfile?.stadium.opened ? String(clubProfile.stadium.opened) : "Not loaded"} />
+              <Metric label="Roof" value={clubProfile?.stadium.roof ?? "Not loaded"} />
+              <Metric label="Surface" value={clubProfile?.stadium.surface ?? "Not loaded"} />
+              <Metric label="City" value={clubProfile?.stadium.city ?? "Not loaded"} />
+              <Metric label="Source" value={clubProfile ? "Curated" : "API needed"} />
             </div>
           </Panel>
 
-          <Panel title="Stadium Intelligence Needed" icon={<ShieldCheck size={18} />} wide>
+          <Panel title={clubProfile ? "Stadium Notes" : "Stadium Intelligence Needed"} icon={<ShieldCheck size={18} />} wide>
             <div className="data-requirements">
+              {clubProfile?.stadium.notes ? (
+                <div>
+                  <strong>Notes</strong>
+                  <span>{clubProfile.stadium.notes}</span>
+                </div>
+              ) : null}
               <div>
                 <strong>Capacity and location</strong>
-                <span>Use `/venues?id=VENUE_ID` or venue metadata returned by `/teams`.</span>
-              </div>
-              <div>
-                <strong>Opened year, roof, and surface</strong>
-                <span>API-Football may not expose every field, so keep these nullable and support enrichment later.</span>
+                <span>
+                  {clubProfile ? "Loaded from curated EPL profile." : "Use `/venues?id=VENUE_ID` or venue metadata returned by `/teams`."}
+                </span>
               </div>
               <div>
                 <strong>Betting relevance</strong>
                 <span>Track home advantage, pitch/surface notes, weather exposure, and travel context.</span>
               </div>
+              {clubProfile ? (
+                <div>
+                  <strong>Sources</strong>
+                  <span>{clubProfile.sources.join(", ")}</span>
+                </div>
+              ) : null}
             </div>
           </Panel>
         </section>
@@ -1318,6 +1361,10 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("en-GB").format(value);
 }
 
 function loadFollows(): FollowState {
