@@ -9,6 +9,7 @@ import {
   Clock,
   Database,
   Goal,
+  Search,
   ShieldCheck,
   Star,
   Target,
@@ -27,6 +28,7 @@ const FOLLOW_STORAGE_KEY = "edgefinder:follows:v1";
 type FixtureFilter = "all" | "following";
 type DateFilter = "all" | "today" | "next24" | "weekend";
 type AppView = "fixtures" | "stats";
+type StatsTab = "leagues" | "teams";
 
 interface FollowState {
   teams: string[];
@@ -43,6 +45,7 @@ interface LeagueSummary {
   fixtureCount: number;
   teamCount: number;
   nextKickoff?: string;
+  fixtures: Fixture[];
 }
 
 interface TeamSummary {
@@ -494,12 +497,51 @@ function StatsWorkspace({
   onToggleLeague: (league: string) => void;
   onToggleTeam: (team: TeamSnapshot) => void;
 }) {
+  const [statsTab, setStatsTab] = React.useState<StatsTab>("leagues");
+  const [query, setQuery] = React.useState("");
+  const [followedOnly, setFollowedOnly] = React.useState(false);
+  const [selectedLeagueName, setSelectedLeagueName] = React.useState(leagueSummaries[0]?.name ?? "");
+  const [selectedTeamKey, setSelectedTeamKey] = React.useState(
+    teamSummaries[0] ? getTeamSummaryKey(teamSummaries[0]) : ""
+  );
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredLeagues = leagueSummaries.filter((league) => {
+    const matchesQuery = !normalizedQuery || league.name.toLowerCase().includes(normalizedQuery);
+    const matchesFollowed = !followedOnly || followedLeagues.has(league.name);
+    return matchesQuery && matchesFollowed;
+  });
+  const filteredTeams = teamSummaries.filter(({ team, league }) => {
+    const matchesQuery =
+      !normalizedQuery ||
+      team.name.toLowerCase().includes(normalizedQuery) ||
+      league.toLowerCase().includes(normalizedQuery);
+    const matchesFollowed = !followedOnly || followedTeamIds.has(team.id) || followedLeagues.has(league);
+    return matchesQuery && matchesFollowed;
+  });
+  const selectedLeague =
+    leagueSummaries.find((league) => league.name === selectedLeagueName) ?? filteredLeagues[0] ?? leagueSummaries[0];
+  const selectedTeam =
+    teamSummaries.find((team) => getTeamSummaryKey(team) === selectedTeamKey) ?? filteredTeams[0] ?? teamSummaries[0];
+
+  React.useEffect(() => {
+    if (!selectedLeagueName && leagueSummaries[0]) {
+      setSelectedLeagueName(leagueSummaries[0].name);
+    }
+  }, [leagueSummaries, selectedLeagueName]);
+
+  React.useEffect(() => {
+    if (!selectedTeamKey && teamSummaries[0]) {
+      setSelectedTeamKey(getTeamSummaryKey(teamSummaries[0]));
+    }
+  }, [selectedTeamKey, teamSummaries]);
+
   return (
     <section className="workspace stats-workspace">
       <header className="stats-header">
         <div>
-          <p>Stats</p>
-          <h1>Leagues and teams</h1>
+          <p>Stats Centre</p>
+          <h1>League and team intelligence</h1>
           <div className="meta-row">
             <span>{leagueSummaries.length} leagues</span>
             <span>{teamSummaries.length} teams</span>
@@ -508,84 +550,278 @@ function StatsWorkspace({
         </div>
       </header>
 
-      <section className="stats-section" aria-label="Leagues">
-        <div className="section-heading">
-          <div>
-            <p>Browse</p>
-            <h2>Leagues</h2>
-          </div>
-        </div>
-        <div className="league-grid">
-          {leagueSummaries.map((league) => (
-            <article className="league-card" key={league.name}>
-              <div>
-                <span>League</span>
-                <h3>{league.name}</h3>
-              </div>
-              <dl>
-                <div>
-                  <dt>Fixtures</dt>
-                  <dd>{league.fixtureCount}</dd>
-                </div>
-                <div>
-                  <dt>Teams</dt>
-                  <dd>{league.teamCount}</dd>
-                </div>
-                <div>
-                  <dt>Next kickoff</dt>
-                  <dd>{league.nextKickoff ? formatDateTime(league.nextKickoff) : "n/a"}</dd>
-                </div>
-              </dl>
-              <FollowButton
-                label={league.name}
-                active={followedLeagues.has(league.name)}
-                onClick={() => onToggleLeague(league.name)}
-              />
-            </article>
-          ))}
-        </div>
+      <section className="stats-toolbar" aria-label="Stats filters">
+        <label className="stats-search">
+          <Search size={17} aria-hidden="true" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search leagues or teams"
+            type="search"
+          />
+        </label>
+        <button
+          className={`stats-toggle ${followedOnly ? "is-active" : ""}`}
+          type="button"
+          onClick={() => setFollowedOnly((current) => !current)}
+        >
+          <Star size={16} fill={followedOnly ? "currentColor" : "none"} aria-hidden="true" />
+          Followed only
+        </button>
       </section>
 
-      <section className="stats-section" aria-label="Teams">
-        <div className="section-heading">
-          <div>
-            <p>Inspect</p>
-            <h2>Teams</h2>
+      <section className="stats-centre">
+        <aside className="stats-browser" aria-label="Stats browser">
+          <div className="stats-tabs">
+            <button
+              className={statsTab === "leagues" ? "is-active" : ""}
+              type="button"
+              onClick={() => setStatsTab("leagues")}
+            >
+              Leagues
+            </button>
+            <button
+              className={statsTab === "teams" ? "is-active" : ""}
+              type="button"
+              onClick={() => setStatsTab("teams")}
+            >
+              Teams
+            </button>
           </div>
-        </div>
-        <div className="team-grid">
-          {teamSummaries.map(({ team, league, fixtureCount, nextFixture }) => (
-            <article className="team-card" key={`${league}-${team.id}`}>
-              <header>
-                <div>
-                  <span>{league}</span>
-                  <h3>{team.name}</h3>
-                </div>
-                <FollowButton
-                  label={team.name}
-                  active={followedTeamIds.has(team.id)}
-                  onClick={() => onToggleTeam(team)}
-                />
-              </header>
-              <div className="team-metrics">
-                <Metric label="Attack rating" value={team.attackRating.toFixed(2)} />
-                <Metric label="Defence rating" value={team.defenceRating.toFixed(2)} />
-                <Metric label="Last 5 xG" value={team.form.xgFor.toFixed(1)} />
-                <Metric label="Last 5 xGA" value={team.form.xgAgainst.toFixed(1)} />
-              </div>
-              <div className="team-card-footer">
-                <span>{fixtureCount} upcoming fixture{fixtureCount === 1 ? "" : "s"}</span>
-                <strong>
-                  {nextFixture
-                    ? `${nextFixture.home.name} v ${nextFixture.away.name}, ${formatDateTime(nextFixture.kickoff)}`
-                    : "No upcoming fixture loaded"}
-                </strong>
-              </div>
-            </article>
-          ))}
+
+          {statsTab === "leagues" ? (
+            <div className="stats-browser-list">
+              {filteredLeagues.map((league) => (
+                <button
+                  className={`stats-browser-item ${selectedLeague?.name === league.name ? "is-selected" : ""}`}
+                  type="button"
+                  key={league.name}
+                  onClick={() => setSelectedLeagueName(league.name)}
+                >
+                  <span>{league.name}</span>
+                  <strong>{league.fixtureCount} fixtures</strong>
+                  <small>{league.teamCount} teams</small>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="stats-browser-list">
+              {filteredTeams.map((teamSummary) => (
+                <button
+                  className={`stats-browser-item ${
+                    selectedTeam && getTeamSummaryKey(selectedTeam) === getTeamSummaryKey(teamSummary) ? "is-selected" : ""
+                  }`}
+                  type="button"
+                  key={getTeamSummaryKey(teamSummary)}
+                  onClick={() => setSelectedTeamKey(getTeamSummaryKey(teamSummary))}
+                >
+                  <span>{teamSummary.team.name}</span>
+                  <strong>{teamSummary.league}</strong>
+                  <small>{teamSummary.fixtureCount} fixtures</small>
+                </button>
+              ))}
+            </div>
+          )}
+        </aside>
+
+        <div className="stats-detail">
+          {statsTab === "leagues" && selectedLeague ? (
+            <LeagueDetail
+              league={selectedLeague}
+              teamSummaries={teamSummaries.filter((team) => team.league === selectedLeague.name)}
+              followed={followedLeagues.has(selectedLeague.name)}
+              onToggleFollow={() => onToggleLeague(selectedLeague.name)}
+              onSelectTeam={(team) => {
+                setStatsTab("teams");
+                setSelectedTeamKey(getTeamSummaryKey(team));
+              }}
+            />
+          ) : selectedTeam ? (
+            <TeamDetail
+              summary={selectedTeam}
+              followed={followedTeamIds.has(selectedTeam.team.id)}
+              onToggleFollow={() => onToggleTeam(selectedTeam.team)}
+            />
+          ) : (
+            <div className="stats-empty">No matching stats loaded.</div>
+          )}
         </div>
       </section>
     </section>
+  );
+}
+
+function LeagueDetail({
+  league,
+  teamSummaries,
+  followed,
+  onToggleFollow,
+  onSelectTeam
+}: {
+  league: LeagueSummary;
+  teamSummaries: TeamSummary[];
+  followed: boolean;
+  onToggleFollow: () => void;
+  onSelectTeam: (team: TeamSummary) => void;
+}) {
+  const attackRankings = teamSummaries.slice().sort((first, second) => second.team.attackRating - first.team.attackRating);
+  const defenceRankings = teamSummaries.slice().sort((first, second) => first.team.defenceRating - second.team.defenceRating);
+
+  return (
+    <>
+      <header className="detail-header">
+        <div>
+          <p>League</p>
+          <h2>{league.name}</h2>
+        </div>
+        <FollowButton label={league.name} active={followed} onClick={onToggleFollow} />
+      </header>
+
+      <section className="detail-metrics" aria-label={`${league.name} overview`}>
+        <Metric label="Fixtures loaded" value={String(league.fixtureCount)} />
+        <Metric label="Teams loaded" value={String(league.teamCount)} />
+        <Metric label="Next kickoff" value={league.nextKickoff ? formatDateTime(league.nextKickoff) : "n/a"} />
+        <Metric label="Follow status" value={followed ? "Following" : "Open"} />
+      </section>
+
+      <section className="detail-grid">
+        <Panel title="Attack Rankings" icon={<TrendingUp size={18} />}>
+          <div className="ranking-list">
+            {attackRankings.slice(0, 8).map((team, index) => (
+              <button className="ranking-row" type="button" key={getTeamSummaryKey(team)} onClick={() => onSelectTeam(team)}>
+                <span>{index + 1}</span>
+                <strong>{team.team.name}</strong>
+                <small>{team.team.attackRating.toFixed(2)}</small>
+              </button>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="Defence Rankings" icon={<ShieldCheck size={18} />}>
+          <div className="ranking-list">
+            {defenceRankings.slice(0, 8).map((team, index) => (
+              <button className="ranking-row" type="button" key={getTeamSummaryKey(team)} onClick={() => onSelectTeam(team)}>
+                <span>{index + 1}</span>
+                <strong>{team.team.name}</strong>
+                <small>{team.team.defenceRating.toFixed(2)}</small>
+              </button>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="Upcoming Fixtures" icon={<CalendarDays size={18} />} wide>
+          <div className="detail-fixture-list">
+            {league.fixtures.slice(0, 10).map((fixture) => (
+              <div className="detail-fixture-row" key={fixture.id}>
+                <span>{formatDateTime(fixture.kickoff)}</span>
+                <strong>
+                  {fixture.home.name} v {fixture.away.name}
+                </strong>
+                <small>{fixture.venue}</small>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </section>
+    </>
+  );
+}
+
+function TeamDetail({
+  summary,
+  followed,
+  onToggleFollow
+}: {
+  summary: TeamSummary;
+  followed: boolean;
+  onToggleFollow: () => void;
+}) {
+  const { team, league, fixtureCount, nextFixture } = summary;
+
+  return (
+    <>
+      <header className="detail-header">
+        <div>
+          <p>{league}</p>
+          <h2>{team.name}</h2>
+        </div>
+        <FollowButton label={team.name} active={followed} onClick={onToggleFollow} />
+      </header>
+
+      <section className="detail-metrics" aria-label={`${team.name} overview`}>
+        <Metric label="Attack rating" value={team.attackRating.toFixed(2)} />
+        <Metric label="Defence rating" value={team.defenceRating.toFixed(2)} />
+        <Metric label="Upcoming fixtures" value={String(fixtureCount)} />
+        <Metric label="Follow status" value={followed ? "Following" : "Open"} />
+      </section>
+
+      <section className="detail-grid">
+        <Panel title="Form Profile" icon={<TrendingUp size={18} />}>
+          <div>
+            <div className="form-badges">
+              {team.form.results.map((result, index) => (
+                <span className={`form-badge ${result.toLowerCase()}`} key={`${team.id}-detail-${index}`}>
+                  {result}
+                </span>
+              ))}
+            </div>
+            <dl>
+              <div>
+                <dt>Goals for</dt>
+                <dd>{team.form.goalsFor}</dd>
+              </div>
+              <div>
+                <dt>Goals against</dt>
+                <dd>{team.form.goalsAgainst}</dd>
+              </div>
+              <div>
+                <dt>Last 5 xG</dt>
+                <dd>{team.form.xgFor.toFixed(1)}</dd>
+              </div>
+              <div>
+                <dt>Last 5 xGA</dt>
+                <dd>{team.form.xgAgainst.toFixed(1)}</dd>
+              </div>
+            </dl>
+          </div>
+        </Panel>
+
+        <Panel title="Next Fixture" icon={<CalendarDays size={18} />}>
+          {nextFixture ? (
+            <div className="next-fixture-card">
+              <span>{formatDateTime(nextFixture.kickoff)}</span>
+              <strong>
+                {nextFixture.home.name} v {nextFixture.away.name}
+              </strong>
+              <small>{nextFixture.venue}</small>
+            </div>
+          ) : (
+            <div className="stats-empty">No upcoming fixture loaded.</div>
+          )}
+        </Panel>
+
+        <Panel title="Player Snapshot" icon={<Activity size={18} />} wide>
+          <div className="scorer-table">
+            <div className="table-head">
+              <span>Player</span>
+              <span>Position</span>
+              <span>Starts</span>
+              <span>Season xG/90</span>
+              <span>Recent xG/90</span>
+            </div>
+            {team.players.map((player) => (
+              <div className="table-row" key={player.id}>
+                <span>{player.name}</span>
+                <span>{player.position}</span>
+                <strong>{player.startsLikely ? "Likely" : "Doubt"}</strong>
+                <span>{player.seasonXgPer90.toFixed(2)}</span>
+                <span>{player.recentXgPer90.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </section>
+    </>
   );
 }
 
@@ -731,6 +967,9 @@ function buildLeagueSummaries(fixtures: Fixture[]): LeagueSummary[] {
       name,
       fixtureCount: value.fixtures.length,
       teamCount: value.teams.size,
+      fixtures: value.fixtures
+        .slice()
+        .sort((first, second) => new Date(first.kickoff).getTime() - new Date(second.kickoff).getTime()),
       nextKickoff: value.fixtures
         .slice()
         .sort((first, second) => new Date(first.kickoff).getTime() - new Date(second.kickoff).getTime())[0]?.kickoff
@@ -761,6 +1000,10 @@ function buildTeamSummaries(fixtures: Fixture[]): TeamSummary[] {
     const leagueSort = first.league.localeCompare(second.league);
     return leagueSort !== 0 ? leagueSort : first.team.name.localeCompare(second.team.name);
   });
+}
+
+function getTeamSummaryKey(summary: TeamSummary) {
+  return `${summary.league}:${summary.team.id}`;
 }
 
 function groupFixturesByDate(fixtures: Fixture[]): FixtureGroup[] {

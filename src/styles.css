@@ -456,6 +456,235 @@ button {
   align-content: start;
 }
 
+.stats-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 12px;
+}
+
+.stats-search {
+  min-height: 46px;
+  border: 1px solid #d7dde3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #667789;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+}
+
+.stats-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: #17202a;
+  font: inherit;
+}
+
+.stats-toggle {
+  min-height: 46px;
+  border: 1px solid #d7dde3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #344454;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  font-weight: 800;
+}
+
+.stats-toggle:hover,
+.stats-toggle.is-active {
+  border-color: #40c8a4;
+  background: #f3fffb;
+  color: #1f9d72;
+}
+
+.stats-centre {
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.stats-browser {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.stats-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid #d7dde3;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 4px;
+}
+
+.stats-tabs button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #667789;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.stats-tabs button.is-active {
+  background: #17202a;
+  color: #ffffff;
+}
+
+.stats-browser-list {
+  display: grid;
+  gap: 8px;
+  max-height: calc(100vh - 250px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.stats-browser-item {
+  border: 1px solid #d7dde3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17202a;
+  cursor: pointer;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.stats-browser-item:hover,
+.stats-browser-item.is-selected {
+  border-color: #40c8a4;
+  background: #f3fffb;
+}
+
+.stats-browser-item span {
+  font-weight: 900;
+}
+
+.stats-browser-item strong,
+.stats-browser-item small {
+  color: #667789;
+  font-size: 0.82rem;
+}
+
+.stats-detail {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.detail-header {
+  background: #ffffff;
+  border: 1px solid #d7dde3;
+  border-radius: 8px;
+  padding: 18px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.detail-header p,
+.detail-header h2 {
+  margin: 0;
+}
+
+.detail-header p {
+  color: #667789;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.detail-header h2 {
+  margin-top: 4px;
+  font-size: clamp(1.6rem, 3vw, 2.8rem);
+  line-height: 1;
+}
+
+.detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ranking-list,
+.detail-fixture-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ranking-row {
+  min-height: 44px;
+  border: 1px solid #e2e7ec;
+  border-radius: 8px;
+  background: #f5f7f9;
+  color: #17202a;
+  cursor: pointer;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+}
+
+.ranking-row:hover {
+  border-color: #40c8a4;
+  background: #f3fffb;
+}
+
+.ranking-row span,
+.ranking-row small {
+  color: #667789;
+}
+
+.detail-fixture-row,
+.next-fixture-card {
+  border: 1px solid #e2e7ec;
+  border-radius: 8px;
+  background: #f5f7f9;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.detail-fixture-row {
+  grid-template-columns: 160px 1fr auto;
+  align-items: center;
+}
+
+.detail-fixture-row span,
+.detail-fixture-row small,
+.next-fixture-card span,
+.next-fixture-card small {
+  color: #667789;
+}
+
+.stats-empty {
+  border: 1px dashed #c3ccd5;
+  border-radius: 8px;
+  color: #667789;
+  padding: 18px;
+  background: #ffffff;
+}
+
 .stats-section {
   display: grid;
   gap: 14px;
@@ -777,8 +1006,12 @@ dd {
   .fixture-list,
   .follow-panel,
   .league-grid,
+  .stats-centre,
+  .stats-toolbar,
+  .detail-metrics,
   .score-strip,
   .dashboard-grid,
+  .detail-grid,
   .team-grid {
     grid-template-columns: 1fr;
   }
@@ -808,6 +1041,8 @@ dd {
   }
 
   .h2h-row,
+  .detail-header,
+  .detail-fixture-row,
   .table-head,
   .table-row,
   .team-card header {
