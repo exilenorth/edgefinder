@@ -20,7 +20,7 @@ import { backendProvider } from "./providers/backendProvider";
 import { createCachedSportsDataProvider, type CacheEvent } from "./providers/cachedProvider";
 import { analyseFixture, formatPercent } from "./model/probability";
 import type { Fixture, MarketSelection, TeamSnapshot } from "./types";
-import { findClubProfile } from "./data/eplClubProfiles";
+import { findClubProfile, getClubCrestUrl, getLeagueLogoUrl } from "./data/eplClubProfiles";
 import "./styles.css";
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
@@ -44,6 +44,7 @@ const EMPTY_FOLLOWS: FollowState = {
 
 interface LeagueSummary {
   name: string;
+  logoUrl?: string;
   fixtureCount: number;
   teamCount: number;
   nextKickoff?: string;
@@ -311,8 +312,10 @@ function App() {
                             onClick={() => setSelectedId(fixture.id)}
                           >
                             <span>{fixture.competition}</span>
-                            <strong>
+                            <strong className="fixture-teams">
+                              <LogoMark src={getTeamLogoUrl(fixture.home)} label={fixture.home.name} size="small" />
                               {fixture.home.name} v {fixture.away.name}
+                              <LogoMark src={getTeamLogoUrl(fixture.away)} label={fixture.away.name} size="small" />
                             </strong>
                             <small>{formatKickoffTime(fixture.kickoff)}</small>
                           </button>
@@ -361,7 +364,9 @@ function App() {
             <div>
               <p>{selected.competition}</p>
               <h1>
+                <LogoMark src={getTeamLogoUrl(selected.home)} label={selected.home.name} />
                 {selected.home.name} <span>vs</span> {selected.away.name}
+                <LogoMark src={getTeamLogoUrl(selected.away)} label={selected.away.name} />
               </h1>
               <div className="meta-row">
                 <span>{selected.venue}</span>
@@ -601,7 +606,10 @@ function StatsWorkspace({
                   key={league.name}
                   onClick={() => setSelectedLeagueName(league.name)}
                 >
-                  <span>{league.name}</span>
+                  <span className="browser-title">
+                    <LogoMark src={league.logoUrl ?? getLeagueLogoUrl(league.name)} label={league.name} size="small" />
+                    {league.name}
+                  </span>
                   <strong>{league.fixtureCount} fixtures</strong>
                   <small>{league.teamCount} teams</small>
                 </button>
@@ -618,7 +626,10 @@ function StatsWorkspace({
                   key={getTeamSummaryKey(teamSummary)}
                   onClick={() => setSelectedTeamKey(getTeamSummaryKey(teamSummary))}
                 >
-                  <span>{teamSummary.team.name}</span>
+                  <span className="browser-title">
+                    <LogoMark src={getTeamLogoUrl(teamSummary.team)} label={teamSummary.team.name} size="small" />
+                    {teamSummary.team.name}
+                  </span>
                   <strong>{teamSummary.league}</strong>
                   <small>{teamSummary.fixtureCount} fixtures</small>
                 </button>
@@ -673,9 +684,12 @@ function LeagueDetail({
   return (
     <>
       <header className="detail-header">
-        <div>
-          <p>League</p>
-          <h2>{league.name}</h2>
+        <div className="entity-heading">
+          <LogoMark src={league.logoUrl ?? getLeagueLogoUrl(league.name)} label={league.name} size="large" />
+          <div>
+            <p>League</p>
+            <h2>{league.name}</h2>
+          </div>
         </div>
         <FollowButton label={league.name} active={followed} onClick={onToggleFollow} />
       </header>
@@ -693,7 +707,10 @@ function LeagueDetail({
             {attackRankings.slice(0, 8).map((team, index) => (
               <button className="ranking-row" type="button" key={getTeamSummaryKey(team)} onClick={() => onSelectTeam(team)}>
                 <span>{index + 1}</span>
-                <strong>{team.team.name}</strong>
+                <strong className="ranking-team">
+                  <LogoMark src={getTeamLogoUrl(team.team)} label={team.team.name} size="small" />
+                  {team.team.name}
+                </strong>
                 <small>{team.team.attackRating.toFixed(2)}</small>
               </button>
             ))}
@@ -705,7 +722,10 @@ function LeagueDetail({
             {defenceRankings.slice(0, 8).map((team, index) => (
               <button className="ranking-row" type="button" key={getTeamSummaryKey(team)} onClick={() => onSelectTeam(team)}>
                 <span>{index + 1}</span>
-                <strong>{team.team.name}</strong>
+                <strong className="ranking-team">
+                  <LogoMark src={getTeamLogoUrl(team.team)} label={team.team.name} size="small" />
+                  {team.team.name}
+                </strong>
                 <small>{team.team.defenceRating.toFixed(2)}</small>
               </button>
             ))}
@@ -745,13 +765,17 @@ function TeamDetail({
   const likelyStarters = team.players.filter((player) => player.startsLikely);
   const positionCounts = getPositionCounts(team.players);
   const clubProfile = findClubProfile(team.id, team.name);
+  const crestUrl = getTeamLogoUrl(team);
 
   return (
     <>
       <header className="detail-header">
-        <div>
-          <p>{league}</p>
-          <h2>{team.name}</h2>
+        <div className="entity-heading">
+          <LogoMark src={crestUrl} label={team.name} size="large" />
+          <div>
+            <p>{league}</p>
+            <h2>{team.name}</h2>
+          </div>
         </div>
         <FollowButton label={team.name} active={followed} onClick={onToggleFollow} />
       </header>
@@ -789,6 +813,10 @@ function TeamDetail({
             <Panel title="Club Profile" icon={<Trophy size={18} />}>
               {clubProfile ? (
                 <div className="club-profile-card">
+                  <div className="club-profile-identity">
+                    <LogoMark src={crestUrl} label={team.name} size="large" />
+                    <strong>{team.name}</strong>
+                  </div>
                   <div>
                     <span>Founded</span>
                     <strong>{clubProfile.founded ?? "Unknown"}</strong>
@@ -1144,6 +1172,29 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function LogoMark({ src, label, size = "medium" }: { src?: string; label: string; size?: "small" | "medium" | "large" }) {
+  return src ? (
+    <img className={`logo-mark ${size}`} src={src} alt="" aria-hidden="true" loading="lazy" />
+  ) : (
+    <span className={`logo-mark fallback ${size}`} aria-hidden="true">
+      {getInitials(label)}
+    </span>
+  );
+}
+
+function getTeamLogoUrl(team: TeamSnapshot) {
+  return team.logoUrl ?? getClubCrestUrl(findClubProfile(team.id, team.name));
+}
+
+function getInitials(label: string) {
+  return label
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 function TeamForm({ fixture }: { fixture: Fixture }) {
   return (
     <div className="form-columns">
@@ -1182,19 +1233,21 @@ function TeamForm({ fixture }: { fixture: Fixture }) {
 }
 
 function buildLeagueSummaries(fixtures: Fixture[]): LeagueSummary[] {
-  const leagues = new Map<string, { fixtures: Fixture[]; teams: Set<string> }>();
+  const leagues = new Map<string, { fixtures: Fixture[]; teams: Set<string>; logoUrl?: string }>();
 
   fixtures.forEach((fixture) => {
-    const current = leagues.get(fixture.competition) ?? { fixtures: [], teams: new Set<string>() };
+    const current = leagues.get(fixture.competition) ?? { fixtures: [], teams: new Set<string>(), logoUrl: undefined };
     current.fixtures.push(fixture);
     current.teams.add(fixture.home.id);
     current.teams.add(fixture.away.id);
+    current.logoUrl = current.logoUrl ?? fixture.competitionLogoUrl ?? getLeagueLogoUrl(fixture.competition);
     leagues.set(fixture.competition, current);
   });
 
   return Array.from(leagues.entries())
     .map(([name, value]) => ({
       name,
+      logoUrl: value.logoUrl,
       fixtureCount: value.fixtures.length,
       teamCount: value.teams.size,
       fixtures: value.fixtures

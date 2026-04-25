@@ -154,12 +154,13 @@ function mapOddsEventFixture(event: OddsApiEvent): Fixture {
 
 function mapFixture(fixture: ApiFootballFixtureSummary, oddsEvent?: OddsApiEvent): Fixture {
   const marketOdds = extractMarketOdds(fixture, oddsEvent);
-  const home = createTeamSnapshot(fixture.teams.home.id, fixture.teams.home.name, true, marketOdds.home);
-  const away = createTeamSnapshot(fixture.teams.away.id, fixture.teams.away.name, false, marketOdds.away);
+  const home = createTeamSnapshot(fixture.teams.home.id, fixture.teams.home.name, true, marketOdds.home, fixture.teams.home.logo);
+  const away = createTeamSnapshot(fixture.teams.away.id, fixture.teams.away.name, false, marketOdds.away, fixture.teams.away.logo);
 
   return {
     id: `api-football:${fixture.fixture.id}`,
     competition: fixture.league.name,
+    competitionLogoUrl: fixture.league.logo,
     kickoff: fixture.fixture.date,
     venue: fixture.fixture.venue?.name ?? "TBC",
     home,
@@ -169,7 +170,7 @@ function mapFixture(fixture: ApiFootballFixtureSummary, oddsEvent?: OddsApiEvent
   };
 }
 
-function createTeamSnapshot(id: number, name: string, isHome: boolean, winOdds: number): TeamSnapshot {
+function createTeamSnapshot(id: number, name: string, isHome: boolean, winOdds: number, logoUrl?: string): TeamSnapshot {
   const impliedStrength = Math.min(Math.max(1 / winOdds, 0.18), 0.62);
   const attackRating = 1.1 + impliedStrength * 1.2 + (isHome ? 0.08 : 0);
   const defenceRating = 0.9 + impliedStrength * 0.6;
@@ -177,6 +178,7 @@ function createTeamSnapshot(id: number, name: string, isHome: boolean, winOdds: 
   return {
     id: String(id),
     name,
+    logoUrl,
     attackRating,
     defenceRating,
     form: createNeutralForm(attackRating, defenceRating),

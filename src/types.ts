@@ -3,6 +3,7 @@ export type Result = "W" | "D" | "L";
 export interface TeamSnapshot {
   id: string;
   name: string;
+  logoUrl?: string;
   attackRating: number;
   defenceRating: number;
   form: {
@@ -38,8 +39,10 @@ export interface HeadToHeadMatch {
 export interface Fixture {
   id: string;
   competition: string;
+  competitionLogoUrl?: string;
   kickoff: string;
   venue: string;
+  venueImageUrl?: string;
   home: TeamSnapshot;
   away: TeamSnapshot;
   marketOdds: {

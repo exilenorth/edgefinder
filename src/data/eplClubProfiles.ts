@@ -1,5 +1,6 @@
 export interface ClubProfile {
   aliases: string[];
+  apiFootballTeamId?: number;
   founded?: number;
   nickname?: string;
   colours?: string;
@@ -12,13 +13,25 @@ export interface ClubProfile {
     roof?: string;
     notes?: string;
   };
+  media?: {
+    crestUrl?: string;
+    stadiumImageUrl?: string;
+  };
   sources: string[];
   lastVerified: string;
 }
 
+export const EPL_LEAGUE_PROFILE = {
+  name: "Premier League",
+  aliases: ["premierleague", "premier league", "epl", "english premier league"],
+  apiFootballLeagueId: 39,
+  logoUrl: "https://media.api-sports.io/football/leagues/39.png"
+};
+
 export const eplClubProfiles: ClubProfile[] = [
   {
     aliases: ["arsenal"],
+    apiFootballTeamId: 42,
     founded: 1886,
     nickname: "The Gunners",
     colours: "Red and white",
@@ -35,6 +48,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["astonvilla", "aston villa"],
+    apiFootballTeamId: 66,
     founded: 1874,
     nickname: "The Villans",
     colours: "Claret and blue",
@@ -51,6 +65,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["bournemouth", "afcbournemouth", "afc bournemouth"],
+    apiFootballTeamId: 35,
     founded: 1899,
     nickname: "The Cherries",
     colours: "Red and black",
@@ -67,6 +82,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["brentford"],
+    apiFootballTeamId: 55,
     founded: 1889,
     nickname: "The Bees",
     colours: "Red and white",
@@ -83,6 +99,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["brighton", "brightonhovealbion", "brighton & hove albion"],
+    apiFootballTeamId: 51,
     founded: 1901,
     nickname: "The Seagulls",
     colours: "Blue and white",
@@ -99,6 +116,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["burnley"],
+    apiFootballTeamId: 44,
     founded: 1882,
     nickname: "The Clarets",
     colours: "Claret and blue",
@@ -115,6 +133,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["chelsea"],
+    apiFootballTeamId: 49,
     founded: 1905,
     nickname: "The Blues",
     colours: "Blue",
@@ -131,6 +150,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["crystalpalace", "crystal palace"],
+    apiFootballTeamId: 52,
     founded: 1905,
     nickname: "The Eagles",
     colours: "Red and blue",
@@ -147,6 +167,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["everton"],
+    apiFootballTeamId: 45,
     founded: 1878,
     nickname: "The Toffees",
     colours: "Royal blue",
@@ -164,6 +185,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["fulham"],
+    apiFootballTeamId: 36,
     founded: 1879,
     nickname: "The Cottagers",
     colours: "White and black",
@@ -180,6 +202,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["leeds", "leedsunited", "leeds united"],
+    apiFootballTeamId: 63,
     founded: 1919,
     nickname: "The Whites",
     colours: "White",
@@ -196,6 +219,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["liverpool"],
+    apiFootballTeamId: 40,
     founded: 1892,
     nickname: "The Reds",
     colours: "Red",
@@ -212,6 +236,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["manchestercity", "man city", "manchester city"],
+    apiFootballTeamId: 50,
     founded: 1880,
     nickname: "City",
     colours: "Sky blue",
@@ -228,6 +253,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["manchesterunited", "man united", "manchester united"],
+    apiFootballTeamId: 33,
     founded: 1878,
     nickname: "The Red Devils",
     colours: "Red, white and black",
@@ -244,6 +270,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["newcastle", "newcastleunited", "newcastle united"],
+    apiFootballTeamId: 34,
     founded: 1892,
     nickname: "The Magpies",
     colours: "Black and white",
@@ -260,6 +287,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["nottinghamforest", "nottingham forest"],
+    apiFootballTeamId: 65,
     founded: 1865,
     nickname: "Forest",
     colours: "Red",
@@ -276,6 +304,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["sunderland"],
+    apiFootballTeamId: 746,
     founded: 1879,
     nickname: "The Black Cats",
     colours: "Red and white",
@@ -292,6 +321,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["tottenham", "tottenhamhotspur", "tottenham hotspur", "spurs"],
+    apiFootballTeamId: 47,
     founded: 1882,
     nickname: "Spurs",
     colours: "White and navy",
@@ -309,6 +339,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["westham", "westhamunited", "west ham", "west ham united"],
+    apiFootballTeamId: 48,
     founded: 1895,
     nickname: "The Hammers",
     colours: "Claret and blue",
@@ -325,6 +356,7 @@ export const eplClubProfiles: ClubProfile[] = [
   },
   {
     aliases: ["wolves", "wolverhamptonwanderers", "wolverhampton wanderers"],
+    apiFootballTeamId: 39,
     founded: 1877,
     nickname: "Wolves",
     colours: "Old gold and black",
@@ -344,8 +376,21 @@ export const eplClubProfiles: ClubProfile[] = [
 export function findClubProfile(teamId: string, teamName: string) {
   const normalizedValues = [normalizeClubKey(teamId), normalizeClubKey(teamName)];
   return eplClubProfiles.find((profile) =>
+    String(profile.apiFootballTeamId) === teamId ||
     profile.aliases.some((alias) => normalizedValues.includes(normalizeClubKey(alias)))
   );
+}
+
+export function getClubCrestUrl(profile: ClubProfile | undefined) {
+  if (!profile) return undefined;
+  return profile.media?.crestUrl ?? (profile.apiFootballTeamId ? `https://media.api-sports.io/football/teams/${profile.apiFootballTeamId}.png` : undefined);
+}
+
+export function getLeagueLogoUrl(leagueName: string) {
+  const normalizedLeague = normalizeClubKey(leagueName);
+  return EPL_LEAGUE_PROFILE.aliases.some((alias) => normalizeClubKey(alias) === normalizedLeague)
+    ? EPL_LEAGUE_PROFILE.logoUrl
+    : undefined;
 }
 
 function normalizeClubKey(value: string) {

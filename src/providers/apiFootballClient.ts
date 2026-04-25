@@ -17,6 +17,7 @@ export interface ApiFootballFixtureSummary {
     id: number;
     date: string;
     venue?: {
+      id?: number;
       name?: string;
     };
     status: {
@@ -26,16 +27,19 @@ export interface ApiFootballFixtureSummary {
   league: {
     id: number;
     name: string;
+    logo?: string;
     season: number;
   };
   teams: {
     home: {
       id: number;
       name: string;
+      logo?: string;
     };
     away: {
       id: number;
       name: string;
+      logo?: string;
     };
   };
   goals: {
