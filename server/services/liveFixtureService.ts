@@ -18,7 +18,9 @@ export class LiveFixtureService {
   private readonly odds?: TheOddsApiClient;
 
   constructor(private readonly deps: FixtureServiceDeps) {
-    this.football = serverConfig.apiFootballKey ? new ApiFootballClient(serverConfig.apiFootballKey) : undefined;
+    this.football = serverConfig.apiFootballKey
+      ? new ApiFootballClient(serverConfig.apiFootballKey, { minIntervalMs: serverConfig.apiFootballMinIntervalMs })
+      : undefined;
     this.odds = serverConfig.oddsApiKey ? new TheOddsApiClient(serverConfig.oddsApiKey) : undefined;
   }
 

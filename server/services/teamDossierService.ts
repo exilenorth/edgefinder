@@ -3,11 +3,11 @@ import {
   ApiFootballClient,
   type ApiFootballFixtureSummary,
   type ApiFootballLineupRecord,
-  type ApiFootballSeasonPlayerRecord
+  type ApiFootballSeasonPlayerRecord,
+  type ApiFootballTransferRecord
 } from "../../src/providers/apiFootballClient";
 import { serverConfig } from "../config";
-
-const TEAM_DOSSIER_TTL_MS = 6 * 60 * 60 * 1000;
+import { teamDossierTtl } from "./seasonCachePolicy";
 
 interface TeamDossierServiceDeps {
   cache: {
@@ -19,7 +19,9 @@ export class TeamDossierService {
   private readonly football?: ApiFootballClient;
 
   constructor(private readonly deps: TeamDossierServiceDeps) {
-    this.football = serverConfig.apiFootballKey ? new ApiFootballClient(serverConfig.apiFootballKey) : undefined;
+    this.football = serverConfig.apiFootballKey
+      ? new ApiFootballClient(serverConfig.apiFootballKey, { minIntervalMs: serverConfig.apiFootballMinIntervalMs })
+      : undefined;
   }
 
   async getTeamDossier(teamId: number, query: { teamName?: string; league?: number; season?: number }) {
@@ -27,8 +29,8 @@ export class TeamDossierService {
     const season = query.season ?? serverConfig.apiFootballSeason;
 
     return this.deps.cache.getOrSet(
-      `team-dossier:v5:${league}:${season}:${teamId}`,
-      TEAM_DOSSIER_TTL_MS,
+      `team-dossier:v6:${league}:${season}:${teamId}`,
+      teamDossierTtl(season),
       () => this.fetchTeamDossier(teamId, { ...query, league, season })
     );
   }
@@ -59,9 +61,12 @@ export class TeamDossierService {
     const injuries = await capture(errors, "Injuries", () =>
       this.football!.getInjuries({ team: teamId, league: query.league, season: seasonContext.season }).then((envelope) => envelope.response)
     );
+    const transfers = await capture(errors, "Transfers", () =>
+      this.football!.getTransfers({ team: teamId }).then((envelope) => envelope.response)
+    );
     const recentFixtures = seasonContext.recentFixtures;
 
-    const recentLineups = await this.fetchRecentLineups(teamId, recentFixtures ?? [], errors);
+    const recentLineups = await this.fetchRecentLineups(teamId, recentFixtures ?? [], errors, seasonContext.season === query.season);
     const profileTeam = profile?.team;
 
     return {
@@ -104,6 +109,7 @@ export class TeamDossierService {
           type: injury.player.type,
           fixture: injury.fixture?.date
         })) ?? [],
+      transfers: mapTransfers(transfers ?? [], teamId, seasonContext.season).slice(0, 30),
       recentFixtures: (recentFixtures ?? []).map(mapRecentFixture),
       recentLineups,
       statistics,
@@ -171,12 +177,13 @@ export class TeamDossierService {
     return players;
   }
 
-  private async fetchRecentLineups(teamId: number, fixtures: ApiFootballFixtureSummary[], errors: string[]) {
+  private async fetchRecentLineups(teamId: number, fixtures: ApiFootballFixtureSummary[], errors: string[], includeLineups: boolean) {
     if (!this.football) return [];
+    if (!includeLineups) return [];
 
     const completedFixtures = fixtures
       .filter((fixture) => fixture.goals.home !== null && fixture.goals.away !== null)
-      .slice(0, 3);
+      .slice(0, 1);
 
     const lineups = await Promise.all(
       completedFixtures.map(async (fixture) => {
@@ -253,6 +260,35 @@ function mapLineup(
   };
 }
 
+function mapTransfers(records: ApiFootballTransferRecord[], teamId: number, season: number): TeamDossier["transfers"] {
+  const seasonStart = new Date(`${season}-06-01T00:00:00Z`).getTime();
+  const seasonEnd = new Date(`${season + 1}-09-01T00:00:00Z`).getTime();
+
+  return records
+    .flatMap((record) =>
+      record.transfers.map((transfer) => {
+        const inTeam = transfer.teams?.in;
+        const outTeam = transfer.teams?.out;
+        const direction = inTeam?.id === teamId ? "in" : outTeam?.id === teamId ? "out" : "other";
+
+        return {
+          player: record.player.name,
+          date: transfer.date,
+          type: transfer.type,
+          in: inTeam?.name,
+          out: outTeam?.name,
+          direction
+        } satisfies TeamDossier["transfers"][number];
+      })
+    )
+    .filter((transfer) => {
+      if (!transfer.date) return false;
+      const time = new Date(transfer.date).getTime();
+      return time >= seasonStart && time <= seasonEnd;
+    })
+    .sort((first, second) => new Date(second.date ?? 0).getTime() - new Date(first.date ?? 0).getTime());
+}
+
 function createUnavailableDossier(
   teamId: number,
   teamName: string,
@@ -271,6 +307,7 @@ function createUnavailableDossier(
     },
     squad: [],
     injuries: [],
+    transfers: [],
     recentFixtures: [],
     recentLineups: [],
     dataStatus: {

@@ -101,6 +101,14 @@ export interface TeamDossier {
     type?: string;
     fixture?: string;
   }>;
+  transfers: Array<{
+    player: string;
+    date?: string;
+    type?: string;
+    in?: string;
+    out?: string;
+    direction: "in" | "out" | "other";
+  }>;
   recentFixtures: Array<{
     id: number;
     date: string;
@@ -118,6 +126,71 @@ export interface TeamDossier {
     startXI: string[];
   }>;
   statistics?: unknown;
+  dataStatus: {
+    source: "live" | "partial" | "unavailable";
+    season: number;
+    errors: string[];
+    refreshedAt: string;
+  };
+}
+
+export interface LeagueHistoricalDossier {
+  league: {
+    id: number;
+    season: number;
+    name?: string;
+    logo?: string;
+  };
+  coverage?: {
+    fixtures?: {
+      events?: boolean;
+      lineups?: boolean;
+      statisticsFixtures?: boolean;
+      statisticsPlayers?: boolean;
+    };
+    standings?: boolean;
+    players?: boolean;
+    topScorers?: boolean;
+    topAssists?: boolean;
+    injuries?: boolean;
+    predictions?: boolean;
+    odds?: boolean;
+  };
+  standings: Array<{
+    rank: number;
+    teamId: number;
+    team: string;
+    logo?: string;
+    played?: number;
+    wins?: number;
+    draws?: number;
+    losses?: number;
+    goalsFor?: number;
+    goalsAgainst?: number;
+    goalDifference?: number;
+    points?: number;
+    form?: string;
+  }>;
+  topScorers: Array<{
+    playerId: number;
+    player: string;
+    team: string;
+    photo?: string;
+    goals?: number;
+    assists?: number;
+    appearances?: number;
+    minutes?: number;
+  }>;
+  topAssists: Array<{
+    playerId: number;
+    player: string;
+    team: string;
+    photo?: string;
+    assists?: number;
+    goals?: number;
+    appearances?: number;
+    minutes?: number;
+  }>;
   dataStatus: {
     source: "live" | "partial" | "unavailable";
     season: number;

@@ -1,6 +1,7 @@
 import express from "express";
 import { SqliteCache } from "./cache/sqliteCache";
 import { serverConfig } from "./config";
+import { LeagueHistoricalService } from "./services/leagueHistoricalService";
 import { LiveFixtureService } from "./services/liveFixtureService";
 import { TeamDossierService } from "./services/teamDossierService";
 
@@ -10,6 +11,7 @@ await cache.init();
 
 const fixtures = new LiveFixtureService({ cache });
 const teams = new TeamDossierService({ cache });
+const leagues = new LeagueHistoricalService({ cache });
 
 app.use(express.json());
 
@@ -58,6 +60,25 @@ app.get("/api/teams/:id/dossier", async (request, response, next) => {
     const result = await teams.getTeamDossier(teamId, {
       teamName: typeof request.query.name === "string" ? request.query.name : undefined,
       league: numberQuery(request.query.league),
+      season: numberQuery(request.query.season)
+    });
+    response.setHeader("x-edgefinder-cache", result.source);
+    response.json(result.value);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/leagues/:id/historical", async (request, response, next) => {
+  try {
+    const leagueId = Number(request.params.id);
+    if (!Number.isFinite(leagueId)) {
+      response.status(400).json({ error: "League id must be numeric" });
+      return;
+    }
+
+    const result = await leagues.getHistoricalDossier({
+      league: leagueId,
       season: numberQuery(request.query.season)
     });
     response.setHeader("x-edgefinder-cache", result.source);

@@ -1,15 +1,55 @@
 const API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io";
 
+interface ApiFootballClientOptions {
+  minIntervalMs?: number;
+}
+
+let sharedLastRequestAt = 0;
+let sharedRequestQueue = Promise.resolve();
+
 export interface ApiFootballEnvelope<T> {
   get: string;
   parameters: Record<string, string>;
-  errors: unknown[];
+  errors: unknown[] | Record<string, string>;
   results: number;
   paging: {
     current: number;
     total: number;
   };
   response: T;
+}
+
+export interface ApiFootballLeagueRecord {
+  league: {
+    id: number;
+    name: string;
+    type?: string;
+    logo?: string;
+  };
+  country?: {
+    name?: string;
+    code?: string;
+    flag?: string;
+  };
+  seasons: Array<{
+    year: number;
+    current: boolean;
+    coverage?: {
+      fixtures?: {
+        events?: boolean;
+        lineups?: boolean;
+        statistics_fixtures?: boolean;
+        statistics_players?: boolean;
+      };
+      standings?: boolean;
+      players?: boolean;
+      top_scorers?: boolean;
+      top_assists?: boolean;
+      injuries?: boolean;
+      predictions?: boolean;
+      odds?: boolean;
+    };
+  }>;
 }
 
 export interface ApiFootballFixtureSummary {
@@ -204,8 +244,71 @@ export interface ApiFootballSeasonPlayerRecord {
   }>;
 }
 
+export interface ApiFootballStandingRecord {
+  league: {
+    id: number;
+    name: string;
+    season: number;
+    logo?: string;
+    standings: Array<
+      Array<{
+        rank: number;
+        team: {
+          id: number;
+          name: string;
+          logo?: string;
+        };
+        points?: number;
+        goalsDiff?: number;
+        form?: string;
+        all?: {
+          played?: number;
+          win?: number;
+          draw?: number;
+          lose?: number;
+          goals?: {
+            for?: number;
+            against?: number;
+          };
+        };
+      }>
+    >;
+  };
+}
+
+export interface ApiFootballTransferRecord {
+  player: {
+    id?: number;
+    name: string;
+  };
+  transfers: Array<{
+    date?: string;
+    type?: string;
+    teams?: {
+      in?: {
+        id?: number;
+        name?: string;
+        logo?: string;
+      };
+      out?: {
+        id?: number;
+        name?: string;
+        logo?: string;
+      };
+    };
+  }>;
+}
+
 export class ApiFootballClient {
-  constructor(private readonly apiKey: string) {}
+  constructor(private readonly apiKey: string, private readonly options: ApiFootballClientOptions = {}) {}
+
+  async getLeagues(query: { id?: number; season?: number; current?: boolean }) {
+    return this.request<ApiFootballLeagueRecord[]>("/leagues", {
+      id: query.id,
+      season: query.season,
+      current: query.current === undefined ? undefined : query.current ? "true" : "false"
+    });
+  }
 
   async listFixtures(query: {
     league: number;
@@ -266,6 +369,22 @@ export class ApiFootballClient {
     return this.request<ApiFootballSeasonPlayerRecord[]>("/players", query);
   }
 
+  async getStandings(query: { league: number; season: number; team?: number }) {
+    return this.request<ApiFootballStandingRecord[]>("/standings", query);
+  }
+
+  async getTopScorers(query: { league: number; season: number }) {
+    return this.request<ApiFootballSeasonPlayerRecord[]>("/players/topscorers", query);
+  }
+
+  async getTopAssists(query: { league: number; season: number }) {
+    return this.request<ApiFootballSeasonPlayerRecord[]>("/players/topassists", query);
+  }
+
+  async getTransfers(query: { team?: number; player?: number }) {
+    return this.request<ApiFootballTransferRecord[]>("/transfers", query);
+  }
+
   private async request<T>(path: string, query: Record<string, string | number | undefined>) {
     const url = new URL(`${API_FOOTBALL_BASE_URL}${path}`);
 
@@ -275,16 +394,55 @@ export class ApiFootballClient {
       }
     });
 
-    const response = await fetch(url, {
-      headers: {
-        "x-apisports-key": this.apiKey
-      }
-    });
+    const response = await this.enqueueRequest(() =>
+      fetch(url, {
+        headers: {
+          "x-apisports-key": this.apiKey
+        }
+      })
+    );
 
     if (!response.ok) {
       throw new Error(`API-Football request failed: ${response.status}`);
     }
 
-    return (await response.json()) as ApiFootballEnvelope<T>;
+    const envelope = (await response.json()) as ApiFootballEnvelope<T>;
+    if (hasApiErrors(envelope.errors)) {
+      throw new Error(`API-Football returned errors: ${formatApiErrors(envelope.errors)}`);
+    }
+
+    return envelope;
   }
+
+  private enqueueRequest<T>(run: () => Promise<T>) {
+    const queued = sharedRequestQueue.then(async () => {
+      const minIntervalMs = this.options.minIntervalMs ?? 0;
+      const elapsed = Date.now() - sharedLastRequestAt;
+      if (elapsed < minIntervalMs) {
+        await delay(minIntervalMs - elapsed);
+      }
+
+      sharedLastRequestAt = Date.now();
+      return run();
+    });
+
+    sharedRequestQueue = queued.then(
+      () => undefined,
+      () => undefined
+    );
+
+    return queued;
+  }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
+}
+
+function hasApiErrors(errors: ApiFootballEnvelope<unknown>["errors"]) {
+  return Array.isArray(errors) ? errors.length > 0 : Object.keys(errors).length > 0;
+}
+
+function formatApiErrors(errors: ApiFootballEnvelope<unknown>["errors"]) {
+  return Array.isArray(errors) ? errors.join(", ") : Object.entries(errors).map(([key, value]) => `${key}: ${value}`).join(", ");
 }

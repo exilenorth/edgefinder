@@ -19,7 +19,7 @@ import {
 import { backendProvider } from "./providers/backendProvider";
 import { createCachedSportsDataProvider, type CacheEvent } from "./providers/cachedProvider";
 import { analyseFixture, formatPercent } from "./model/probability";
-import type { Fixture, MarketSelection, TeamDossier, TeamSnapshot } from "./types";
+import type { Fixture, LeagueHistoricalDossier, MarketSelection, TeamDossier, TeamSnapshot } from "./types";
 import { findClubProfile, getClubCrestUrl, getLeagueLogoUrl } from "./data/eplClubProfiles";
 import { apiConfig } from "./config/apiConfig";
 import "./styles.css";
@@ -32,8 +32,9 @@ const STATS_SEASON_OPTIONS = Array.from({ length: 4 }, (_, index) => DEFAULT_STA
 type FixtureFilter = "all" | "following";
 type DateFilter = "all" | "today" | "next24" | "weekend";
 type AppView = "fixtures" | "stats";
+type StatsMode = "current" | "historical";
 type StatsTab = "leagues" | "teams";
-type TeamInsightTab = "overview" | "squad" | "lineups" | "manager" | "stadium" | "fixtures";
+type TeamInsightTab = "overview" | "squad" | "lineups" | "manager" | "stadium" | "fixtures" | "transfers";
 
 interface FollowState {
   teams: string[];
@@ -509,9 +510,12 @@ function StatsWorkspace({
   onToggleTeam: (team: TeamSnapshot) => void;
 }) {
   const [statsTab, setStatsTab] = React.useState<StatsTab>("leagues");
+  const [statsMode, setStatsMode] = React.useState<StatsMode>("current");
   const [query, setQuery] = React.useState("");
   const [followedOnly, setFollowedOnly] = React.useState(false);
   const [selectedSeason, setSelectedSeason] = React.useState(DEFAULT_STATS_SEASON);
+  const [historicalDossier, setHistoricalDossier] = React.useState<LeagueHistoricalDossier | undefined>();
+  const [historicalLoading, setHistoricalLoading] = React.useState(false);
   const [selectedLeagueName, setSelectedLeagueName] = React.useState(leagueSummaries[0]?.name ?? "");
   const [selectedTeamKey, setSelectedTeamKey] = React.useState(
     teamSummaries[0] ? getTeamSummaryKey(teamSummaries[0]) : ""
@@ -548,6 +552,32 @@ function StatsWorkspace({
     }
   }, [selectedTeamKey, teamSummaries]);
 
+  React.useEffect(() => {
+    if (statsMode !== "historical") return;
+
+    let cancelled = false;
+    setHistoricalLoading(true);
+    fetch(`/api/leagues/${apiConfig.apiFootballLeagueId}/historical?season=${selectedSeason}`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Historical league request failed: ${response.status}`);
+        return response.json() as Promise<LeagueHistoricalDossier>;
+      })
+      .then((dossier) => {
+        if (!cancelled) setHistoricalDossier(dossier);
+      })
+      .catch((error) => {
+        console.warn("Historical league request failed", error);
+        if (!cancelled) setHistoricalDossier(undefined);
+      })
+      .finally(() => {
+        if (!cancelled) setHistoricalLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSeason, statsMode]);
+
   return (
     <section className="workspace stats-workspace">
       <header className="stats-header">
@@ -580,6 +610,14 @@ function StatsWorkspace({
           <Star size={16} fill={followedOnly ? "currentColor" : "none"} aria-hidden="true" />
           Followed only
         </button>
+        <div className="stats-mode-toggle" aria-label="Stats mode">
+          <button className={statsMode === "current" ? "is-active" : ""} type="button" onClick={() => setStatsMode("current")}>
+            Current
+          </button>
+          <button className={statsMode === "historical" ? "is-active" : ""} type="button" onClick={() => setStatsMode("historical")}>
+            Historical
+          </button>
+        </div>
         <label className="season-select">
           <span>Season</span>
           <select value={selectedSeason} onChange={(event) => setSelectedSeason(Number(event.target.value))}>
@@ -653,7 +691,9 @@ function StatsWorkspace({
         </aside>
 
         <div className="stats-detail">
-          {statsTab === "leagues" && selectedLeague ? (
+          {statsMode === "historical" ? (
+            <HistoricalLeagueDetail dossier={historicalDossier} loading={historicalLoading} selectedSeason={selectedSeason} />
+          ) : statsTab === "leagues" && selectedLeague ? (
             <LeagueDetail
               league={selectedLeague}
               teamSummaries={teamSummaries.filter((team) => team.league === selectedLeague.name)}
@@ -677,6 +717,125 @@ function StatsWorkspace({
         </div>
       </section>
     </section>
+  );
+}
+
+function HistoricalLeagueDetail({
+  dossier,
+  loading,
+  selectedSeason
+}: {
+  dossier: LeagueHistoricalDossier | undefined;
+  loading: boolean;
+  selectedSeason: number;
+}) {
+  const coverageItems = dossier?.coverage ? Object.entries(flattenCoverage(dossier.coverage)) : [];
+
+  return (
+    <>
+      <header className="detail-header">
+        <div className="entity-heading">
+          <LogoMark src={dossier?.league.logo ?? getLeagueLogoUrl("Premier League")} label={dossier?.league.name ?? "Premier League"} size="large" />
+          <div>
+            <p>Historical Season</p>
+            <h2>{dossier?.league.name ?? "Premier League"}</h2>
+            <span className="season-chip">Viewing {formatSeasonLabel(selectedSeason)}</span>
+          </div>
+        </div>
+      </header>
+
+      <section className="detail-metrics" aria-label="Historical season status">
+        <Metric label="Data status" value={loading ? "Loading" : dossier?.dataStatus.source ?? "Not loaded"} />
+        <Metric label="Table rows" value={String(dossier?.standings.length ?? 0)} />
+        <Metric label="Top scorers" value={String(dossier?.topScorers.length ?? 0)} />
+        <Metric label="Top assists" value={String(dossier?.topAssists.length ?? 0)} />
+      </section>
+
+      <section className="detail-grid">
+        <Panel title="Final League Table" icon={<Trophy size={18} />} wide>
+          {dossier?.standings.length ? (
+            <div className="standings-table">
+              <div className="standings-head">
+                <span>#</span>
+                <span>Team</span>
+                <span>P</span>
+                <span>W</span>
+                <span>D</span>
+                <span>L</span>
+                <span>GD</span>
+                <span>Pts</span>
+              </div>
+              {dossier.standings.map((standing) => (
+                <div className="standings-row" key={standing.teamId}>
+                  <span>{standing.rank}</span>
+                  <strong className="ranking-team">
+                    <LogoMark src={standing.logo} label={standing.team} size="small" />
+                    {standing.team}
+                  </strong>
+                  <span>{standing.played ?? "n/a"}</span>
+                  <span>{standing.wins ?? "n/a"}</span>
+                  <span>{standing.draws ?? "n/a"}</span>
+                  <span>{standing.losses ?? "n/a"}</span>
+                  <span>{standing.goalDifference ?? "n/a"}</span>
+                  <strong>{standing.points ?? "n/a"}</strong>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="stats-empty">{loading ? "Loading historical table..." : "No historical table returned for this season."}</div>
+          )}
+        </Panel>
+
+        <Panel title="Top Scorers" icon={<Goal size={18} />}>
+          <PlayerRankings players={dossier?.topScorers ?? []} metric="goals" />
+        </Panel>
+
+        <Panel title="Top Assists" icon={<Activity size={18} />}>
+          <PlayerRankings players={dossier?.topAssists ?? []} metric="assists" />
+        </Panel>
+
+        <Panel title="Coverage Planner" icon={<Database size={18} />} wide>
+          {coverageItems.length ? (
+            <div className="coverage-grid">
+              {coverageItems.map(([label, enabled]) => (
+                <div className={enabled ? "coverage-item is-on" : "coverage-item"} key={label}>
+                  <strong>{enabled ? "Available" : "Unavailable"}</strong>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="stats-empty">Coverage data is not available for this league-season yet.</div>
+          )}
+        </Panel>
+      </section>
+    </>
+  );
+}
+
+function PlayerRankings({
+  players,
+  metric
+}: {
+  players: LeagueHistoricalDossier["topScorers"];
+  metric: "goals" | "assists";
+}) {
+  return (
+    <div className="ranking-list">
+      {players.length ? (
+        players.slice(0, 10).map((player, index) => (
+          <div className="ranking-row" key={`${metric}-${player.playerId}`}>
+            <span>{index + 1}</span>
+            <strong>{player.player}</strong>
+            <small>
+              {metric === "goals" ? player.goals ?? 0 : player.assists ?? 0} | {player.team}
+            </small>
+          </div>
+        ))
+      ) : (
+        <div className="stats-empty">No ranking data returned.</div>
+      )}
+    </div>
   );
 }
 
@@ -844,7 +1003,8 @@ function TeamDetail({
           ["lineups", "Lineups"],
           ["manager", "Manager"],
           ["stadium", "Stadium"],
-          ["fixtures", "Fixtures"]
+          ["fixtures", "Fixtures"],
+          ["transfers", "Transfers"]
         ].map(([id, label]) => (
           <button
             className={activeTab === id ? "is-active" : ""}
@@ -1209,7 +1369,42 @@ function TeamDetail({
           </Panel>
         </section>
       ) : null}
+
+      {activeTab === "transfers" ? (
+        <section className="detail-grid">
+          <Panel title="Transfers In" icon={<TrendingUp size={18} />}>
+            <TransferList transfers={dossier?.transfers.filter((transfer) => transfer.direction === "in") ?? []} empty="No incoming transfers returned for this season." />
+          </Panel>
+
+          <Panel title="Transfers Out" icon={<Activity size={18} />}>
+            <TransferList transfers={dossier?.transfers.filter((transfer) => transfer.direction === "out") ?? []} empty="No outgoing transfers returned for this season." />
+          </Panel>
+
+          <Panel title="Squad Churn Context" icon={<Database size={18} />} wide>
+            <div className="data-note">
+              Transfers are filtered to the selected season window and are useful context for chemistry, minutes distribution, and whether historical team stats are comparable to the current squad.
+            </div>
+          </Panel>
+        </section>
+      ) : null}
     </>
+  );
+}
+
+function TransferList({ transfers, empty }: { transfers: TeamDossier["transfers"]; empty: string }) {
+  return transfers.length ? (
+    <div className="data-requirements">
+      {transfers.map((transfer) => (
+        <div key={`${transfer.player}-${transfer.date}-${transfer.in}-${transfer.out}`}>
+          <strong>{transfer.player}</strong>
+          <span>
+            {transfer.date ? formatDate(transfer.date) : "Date n/a"} | {transfer.out ?? "Unknown"} to {transfer.in ?? "Unknown"} | {transfer.type ?? "n/a"}
+          </span>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="stats-empty">{empty}</div>
   );
 }
 
@@ -1579,6 +1774,22 @@ function formatDate(value: string) {
 
 function formatSeasonLabel(season: number) {
   return `${season}/${String(season + 1).slice(-2)}`;
+}
+
+function flattenCoverage(coverage: NonNullable<LeagueHistoricalDossier["coverage"]>) {
+  return {
+    Standings: Boolean(coverage.standings),
+    Players: Boolean(coverage.players),
+    "Top scorers": Boolean(coverage.topScorers),
+    "Top assists": Boolean(coverage.topAssists),
+    Injuries: Boolean(coverage.injuries),
+    Predictions: Boolean(coverage.predictions),
+    Odds: Boolean(coverage.odds),
+    Events: Boolean(coverage.fixtures?.events),
+    Lineups: Boolean(coverage.fixtures?.lineups),
+    "Fixture stats": Boolean(coverage.fixtures?.statisticsFixtures),
+    "Player match stats": Boolean(coverage.fixtures?.statisticsPlayers)
+  };
 }
 
 function formatNumber(value: number) {

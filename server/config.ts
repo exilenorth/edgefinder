@@ -18,6 +18,7 @@ export const serverConfig = {
   dataDir: path.join(rootDir, "data"),
   cacheDbPath: path.join(rootDir, "data", "edgefinder-cache.sqlite"),
   apiFootballKey: process.env.API_FOOTBALL_KEY ?? process.env.VITE_API_FOOTBALL_KEY,
+  apiFootballMinIntervalMs: numberFromEnv("API_FOOTBALL_MIN_INTERVAL_MS", 6500),
   oddsApiKey: process.env.THE_ODDS_API_KEY ?? process.env.VITE_THE_ODDS_API_KEY,
   apiFootballLeagueId: numberFromEnv("API_FOOTBALL_LEAGUE_ID", numberFromEnv("VITE_API_FOOTBALL_LEAGUE_ID", 39)),
   apiFootballSeason: numberFromEnv("API_FOOTBALL_SEASON", numberFromEnv("VITE_API_FOOTBALL_SEASON", 2026)),
