@@ -19,7 +19,7 @@ import {
 import { backendProvider } from "./providers/backendProvider";
 import { createCachedSportsDataProvider, type CacheEvent } from "./providers/cachedProvider";
 import { analyseFixture, formatPercent } from "./model/probability";
-import type { Fixture, MarketSelection, TeamSnapshot } from "./types";
+import type { Fixture, MarketSelection, TeamDossier, TeamSnapshot } from "./types";
 import { findClubProfile, getClubCrestUrl, getLeagueLogoUrl } from "./data/eplClubProfiles";
 import "./styles.css";
 
@@ -761,12 +761,45 @@ function TeamDetail({
 }) {
   const { team, league, fixtureCount, nextFixture } = summary;
   const [activeTab, setActiveTab] = React.useState<TeamInsightTab>("overview");
+  const [dossier, setDossier] = React.useState<TeamDossier | undefined>();
+  const [dossierLoading, setDossierLoading] = React.useState(false);
   const probableFormation = estimateFormation(team.players);
-  const likelyStarters = team.players.filter((player) => player.startsLikely);
-  const positionCounts = getPositionCounts(team.players);
   const clubProfile = findClubProfile(team.id, team.name);
+  const apiTeamId = getApiFootballTeamId(team, clubProfile);
   const crestUrl = getTeamLogoUrl(team);
-  const stadiumImageUrl = getStadiumImageUrl(summary);
+  const squadPlayers = dossier?.squad.length ? dossier.squad : undefined;
+  const likelyStarters = team.players.filter((player) => player.startsLikely);
+  const positionCounts = getPositionCountsFromDossier(squadPlayers) ?? getPositionCounts(team.players);
+  const stadiumImageUrl = dossier?.venue?.image ?? getStadiumImageUrl(summary);
+
+  React.useEffect(() => {
+    if (!apiTeamId) {
+      setDossier(undefined);
+      return;
+    }
+
+    let cancelled = false;
+    setDossierLoading(true);
+    fetch(`/api/teams/${apiTeamId}/dossier?name=${encodeURIComponent(team.name)}`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Team dossier request failed: ${response.status}`);
+        return response.json() as Promise<TeamDossier>;
+      })
+      .then((nextDossier) => {
+        if (!cancelled) setDossier(nextDossier);
+      })
+      .catch((error) => {
+        console.warn("Team dossier request failed", error);
+        if (!cancelled) setDossier(undefined);
+      })
+      .finally(() => {
+        if (!cancelled) setDossierLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiTeamId, team.name]);
 
   return (
     <>
@@ -880,6 +913,27 @@ function TeamDetail({
                 <div className="stats-empty">No upcoming fixture loaded.</div>
               )}
             </Panel>
+
+            <Panel title="Data Status" icon={<Database size={18} />}>
+              <div className="data-requirements">
+                <div>
+                  <strong>{dossierLoading ? "Loading live dossier" : dossier?.dataStatus.source ?? "Fixture snapshot"}</strong>
+                  <span>
+                    {dossier
+                      ? `API-Football season ${dossier.dataStatus.season}, refreshed ${formatDateTime(dossier.dataStatus.refreshedAt)}.`
+                      : apiTeamId
+                        ? "Waiting for cached API-Football team dossier."
+                        : "No numeric API-Football team id available for this team yet."}
+                  </span>
+                </div>
+                {dossier?.dataStatus.errors.slice(0, 2).map((error) => (
+                  <div key={error}>
+                    <strong>Partial data</strong>
+                    <span>{error}</span>
+                  </div>
+                ))}
+              </div>
+            </Panel>
           </section>
         </>
       ) : null}
@@ -899,12 +953,23 @@ function TeamDetail({
 
           <Panel title="Availability Snapshot" icon={<ShieldCheck size={18} />}>
             <div className="detail-metrics compact">
-              <Metric label="Players loaded" value={String(team.players.length)} />
+              <Metric label="Players loaded" value={String(squadPlayers?.length ?? team.players.length)} />
               <Metric label="Likely starters" value={String(likelyStarters.length)} />
             </div>
-            <div className="data-note">
-              Injuries, suspensions, and doubts should be filled from `/injuries`.
-            </div>
+            {dossier?.injuries.length ? (
+              <div className="lineup-list">
+                {dossier.injuries.slice(0, 5).map((injury) => (
+                  <div className="lineup-row" key={`${injury.player}-${injury.fixture ?? injury.reason ?? ""}`}>
+                    <strong>{injury.player}</strong>
+                    <span>{injury.reason ?? injury.type ?? "Listed injury"}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="data-note">
+                {dossier ? "No current injuries returned by API-Football for this team/season." : "Injuries will load from `/injuries` when the dossier is available."}
+              </div>
+            )}
           </Panel>
 
           <Panel title="Squad List" icon={<Activity size={18} />} wide>
@@ -913,16 +978,16 @@ function TeamDetail({
               <span>Player</span>
               <span>Position</span>
               <span>Starts</span>
-              <span>Season xG/90</span>
-              <span>Recent xG/90</span>
+              <span>{squadPlayers ? "Age" : "Season xG/90"}</span>
+              <span>{squadPlayers ? "Source" : "Recent xG/90"}</span>
             </div>
-            {team.players.map((player) => (
+            {(squadPlayers ?? team.players).map((player) => (
               <div className="table-row" key={player.id}>
                 <span>{player.name}</span>
-                <span>{player.position}</span>
-                <strong>{player.startsLikely ? "Likely" : "Doubt"}</strong>
-                <span>{player.seasonXgPer90.toFixed(2)}</span>
-                <span>{player.recentXgPer90.toFixed(2)}</span>
+                <span>{player.position ?? "n/a"}</span>
+                <strong>{"startsLikely" in player ? (player.startsLikely ? "Likely" : "Doubt") : (player.number ? `#${player.number}` : "Squad")}</strong>
+                <span>{"seasonXgPer90" in player ? player.seasonXgPer90.toFixed(2) : (player.age ? String(player.age) : "n/a")}</span>
+                <span>{"recentXgPer90" in player ? player.recentXgPer90.toFixed(2) : "API"}</span>
               </div>
             ))}
           </div>
@@ -934,9 +999,13 @@ function TeamDetail({
         <section className="detail-grid">
           <Panel title="Formation Profile" icon={<Target size={18} />}>
             <div className="formation-card">
-              <span>Estimated setup</span>
-              <strong>{probableFormation}</strong>
-              <small>Based on the currently loaded player snapshot.</small>
+              <span>{dossier?.recentLineups[0]?.formation ? "Latest recorded setup" : "Estimated setup"}</span>
+              <strong>{dossier?.recentLineups[0]?.formation ?? probableFormation}</strong>
+              <small>
+                {dossier?.recentLineups[0]
+                  ? `From recent lineup against ${dossier.recentLineups[0].opponent}.`
+                  : "Based on the currently loaded player snapshot."}
+              </small>
             </div>
             <div className="data-note">
               Previous formations and confirmed lineups should come from `/fixtures/lineups`.
@@ -958,21 +1027,23 @@ function TeamDetail({
             </div>
           </Panel>
 
-          <Panel title="Previous Lineups Needed" icon={<Database size={18} />} wide>
-            <div className="data-requirements">
-              <div>
-                <strong>Previous starting XIs</strong>
-                <span>`/fixtures/lineups?fixture={"{fixtureId}"}`</span>
+          <Panel title="Previous Lineups" icon={<Database size={18} />} wide>
+            {dossier?.recentLineups.length ? (
+              <div className="data-requirements">
+                {dossier.recentLineups.map((lineup) => (
+                  <div key={lineup.fixtureId}>
+                    <strong>
+                      {formatDate(lineup.date)} vs {lineup.opponent} {lineup.formation ? `(${lineup.formation})` : ""}
+                    </strong>
+                    <span>{lineup.startXI.slice(0, 11).join(", ")}</span>
+                  </div>
+                ))}
               </div>
-              <div>
-                <strong>Formation history</strong>
-                <span>Aggregate formation values from recent fixture lineups.</span>
+            ) : (
+              <div className="data-note">
+                Previous formations and starting XIs will populate from `/fixtures/lineups` when available on your API plan.
               </div>
-              <div>
-                <strong>Player match minutes</strong>
-                <span>`/fixtures/players?fixture={"{fixtureId}"}`</span>
-              </div>
-            </div>
+            )}
           </Panel>
         </section>
       ) : null}
@@ -981,9 +1052,14 @@ function TeamDetail({
         <section className="detail-grid">
           <Panel title="Manager Profile" icon={<Trophy size={18} />}>
             <div className="manager-card">
+              {dossier?.coach?.photo ? <img className="person-image" src={dossier.coach.photo} alt="" aria-hidden="true" loading="lazy" /> : null}
               <span>Manager</span>
-              <strong>Not loaded yet</strong>
-              <small>Connect API-Football /coachs?team=TEAM_ID to populate name, nationality, age, and career.</small>
+              <strong>{dossier?.coach?.name || "Not loaded yet"}</strong>
+              <small>
+                {dossier?.coach
+                  ? [dossier.coach.nationality, dossier.coach.age ? `${dossier.coach.age} years old` : ""].filter(Boolean).join(" | ")
+                  : "Connect API-Football /coachs?team=TEAM_ID to populate name, nationality, age, and career."}
+              </small>
             </div>
           </Panel>
 
@@ -991,11 +1067,15 @@ function TeamDetail({
             <div className="data-requirements">
               <div>
                 <strong>Current spell record</strong>
-                <span>Wins, draws, losses, goals for/against.</span>
+                <span>Next step: derive wins, draws, losses, goals for/against from cached team fixtures.</span>
               </div>
               <div>
                 <strong>Formation preference</strong>
-                <span>Derived from recent `/fixtures/lineups`.</span>
+                <span>
+                  {dossier?.recentLineups.length
+                    ? dossier.recentLineups.map((lineup) => lineup.formation).filter(Boolean).join(", ")
+                    : "Derived from recent `/fixtures/lineups`."}
+                </span>
               </div>
               <div>
                 <strong>Home/away split</strong>
@@ -1014,6 +1094,7 @@ function TeamDetail({
               <span>Home ground</span>
               <strong>
                 {clubProfile?.stadium.name ??
+                  dossier?.venue?.name ??
                   (nextFixture?.venue && nextFixture.venue !== "TBC" ? nextFixture.venue : "Venue not loaded")}
               </strong>
               <small>
@@ -1026,12 +1107,21 @@ function TeamDetail({
 
           <Panel title="Venue Facts" icon={<Database size={18} />}>
             <div className="venue-facts">
-              <Metric label="Capacity" value={clubProfile?.stadium.capacity ? formatNumber(clubProfile.stadium.capacity) : "Not loaded"} />
+              <Metric
+                label="Capacity"
+                value={
+                  clubProfile?.stadium.capacity
+                    ? formatNumber(clubProfile.stadium.capacity)
+                    : dossier?.venue?.capacity
+                      ? formatNumber(dossier.venue.capacity)
+                      : "Not loaded"
+                }
+              />
               <Metric label="Opened" value={clubProfile?.stadium.opened ? String(clubProfile.stadium.opened) : "Not loaded"} />
               <Metric label="Roof" value={clubProfile?.stadium.roof ?? "Not loaded"} />
-              <Metric label="Surface" value={clubProfile?.stadium.surface ?? "Not loaded"} />
-              <Metric label="City" value={clubProfile?.stadium.city ?? "Not loaded"} />
-              <Metric label="Source" value={clubProfile ? "Curated" : "API needed"} />
+              <Metric label="Surface" value={clubProfile?.stadium.surface ?? dossier?.venue?.surface ?? "Not loaded"} />
+              <Metric label="City" value={clubProfile?.stadium.city ?? dossier?.venue?.city ?? "Not loaded"} />
+              <Metric label="Source" value={clubProfile ? "Curated + API" : dossier?.venue ? "API-Football" : "API needed"} />
             </div>
           </Panel>
 
@@ -1066,6 +1156,21 @@ function TeamDetail({
 
       {activeTab === "fixtures" ? (
         <section className="detail-grid">
+          {dossier?.recentFixtures.length ? (
+            <Panel title="Recent Results" icon={<ShieldCheck size={18} />} wide>
+              <div className="detail-fixture-list">
+                {dossier.recentFixtures.map((fixture) => (
+                  <div className="detail-fixture-row" key={fixture.id}>
+                    <span>{formatDateTime(fixture.date)}</span>
+                    <strong>
+                      {fixture.home} {fixture.homeGoals ?? "-"}-{fixture.awayGoals ?? "-"} {fixture.away}
+                    </strong>
+                    <small>{fixture.venue ?? "Venue n/a"}</small>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          ) : null}
           <Panel title="Loaded Fixtures" icon={<CalendarDays size={18} />} wide>
             <div className="detail-fixture-list">
               {summary.fixtures.map((fixture) => (
@@ -1188,6 +1293,11 @@ function getTeamLogoUrl(team: TeamSnapshot) {
   return team.logoUrl ?? getClubCrestUrl(findClubProfile(team.id, team.name));
 }
 
+function getApiFootballTeamId(team: TeamSnapshot, profile: ReturnType<typeof findClubProfile>) {
+  const numericId = Number(team.id);
+  return Number.isFinite(numericId) ? numericId : profile?.apiFootballTeamId;
+}
+
 function getStadiumImageUrl(summary: TeamSummary) {
   const profile = findClubProfile(summary.team.id, summary.team.name);
   return profile?.media?.stadiumImageUrl ?? summary.fixtures.find((fixture) => Boolean(fixture.venueImageUrl))?.venueImageUrl;
@@ -1308,6 +1418,20 @@ function getPositionCounts(players: TeamSnapshot["players"]) {
     .sort((first, second) => first.position.localeCompare(second.position));
 }
 
+function getPositionCountsFromDossier(players: TeamDossier["squad"] | undefined) {
+  if (!players?.length) return undefined;
+
+  const counts = players.reduce((current, player) => {
+    const position = player.position ?? "Unknown";
+    current.set(position, (current.get(position) ?? 0) + 1);
+    return current;
+  }, new Map<string, number>());
+
+  return Array.from(counts.entries())
+    .map(([position, count]) => ({ position, count }))
+    .sort((first, second) => first.position.localeCompare(second.position));
+}
+
 function estimateFormation(players: TeamSnapshot["players"]) {
   const hasAttackingMid = players.some((player) => player.position === "AM");
   const forwardCount = players.filter((player) => player.position === "FW").length;
@@ -1420,6 +1544,13 @@ function formatDateTime(value: string) {
     month: "short",
     hour: "2-digit",
     minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short"
   }).format(new Date(value));
 }
 

@@ -814,6 +814,15 @@ button {
   background: #ffffff;
 }
 
+.person-image {
+  width: 74px;
+  height: 74px;
+  object-fit: cover;
+  border: 1px solid #d7dde3;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
 .formation-card span,
 .formation-card small,
 .manager-card span,

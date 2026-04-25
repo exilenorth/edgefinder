@@ -48,6 +48,99 @@ export interface ApiFootballFixtureSummary {
   };
 }
 
+export interface ApiFootballTeamRecord {
+  team: {
+    id: number;
+    name: string;
+    code?: string;
+    country?: string;
+    founded?: number;
+    national?: boolean;
+    logo?: string;
+  };
+  venue?: {
+    id?: number;
+    name?: string;
+    address?: string;
+    city?: string;
+    capacity?: number;
+    surface?: string;
+    image?: string;
+  };
+}
+
+export interface ApiFootballSquadRecord {
+  team: {
+    id: number;
+    name: string;
+    logo?: string;
+  };
+  players: Array<{
+    id: number;
+    name: string;
+    age?: number;
+    number?: number;
+    position?: string;
+    photo?: string;
+  }>;
+}
+
+export interface ApiFootballCoachRecord {
+  id?: number;
+  name?: string;
+  firstname?: string;
+  lastname?: string;
+  age?: number;
+  birth?: {
+    date?: string;
+    place?: string;
+    country?: string;
+  };
+  nationality?: string;
+  height?: string;
+  weight?: string;
+  photo?: string;
+}
+
+export interface ApiFootballInjuryRecord {
+  player: {
+    id?: number;
+    name: string;
+    type?: string;
+    reason?: string;
+  };
+  team: {
+    id: number;
+    name: string;
+  };
+  fixture?: {
+    id: number;
+    date: string;
+  };
+  league?: {
+    id: number;
+    season: number;
+  };
+}
+
+export interface ApiFootballLineupRecord {
+  team: {
+    id: number;
+    name: string;
+    logo?: string;
+  };
+  formation?: string;
+  startXI: Array<{
+    player: {
+      id?: number;
+      name: string;
+      number?: number;
+      pos?: string;
+      grid?: string;
+    };
+  }>;
+}
+
 export interface ApiFootballFixtureStatistic {
   team: {
     id: number;
@@ -82,6 +175,7 @@ export class ApiFootballClient {
     from?: string;
     to?: string;
     next?: number;
+    last?: number;
     team?: number;
   }) {
     return this.request<ApiFootballFixtureSummary[]>("/fixtures", query);
@@ -108,6 +202,26 @@ export class ApiFootballClient {
 
   async getTeamStatistics(query: { league: number; season: number; team: number }) {
     return this.request<unknown>("/teams/statistics", query);
+  }
+
+  async getTeams(query: { id?: number; name?: string; league?: number; season?: number }) {
+    return this.request<ApiFootballTeamRecord[]>("/teams", query);
+  }
+
+  async getSquad(team: number) {
+    return this.request<ApiFootballSquadRecord[]>("/players/squads", { team });
+  }
+
+  async getCoachs(team: number) {
+    return this.request<ApiFootballCoachRecord[]>("/coachs", { team });
+  }
+
+  async getInjuries(query: { team: number; league?: number; season?: number; fixture?: number }) {
+    return this.request<ApiFootballInjuryRecord[]>("/injuries", query);
+  }
+
+  async getLineups(fixture: number) {
+    return this.request<ApiFootballLineupRecord[]>("/fixtures/lineups", { fixture });
   }
 
   async getPlayers(query: { league?: number; season: number; team?: number; player?: number; page?: number }) {

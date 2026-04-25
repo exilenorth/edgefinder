@@ -55,6 +55,72 @@ export interface Fixture {
   headToHead: HeadToHeadMatch[];
 }
 
+export interface TeamDossier {
+  team: {
+    id: number;
+    name: string;
+    logo?: string;
+    founded?: number;
+    country?: string;
+  };
+  league: {
+    id: number;
+    season: number;
+  };
+  venue?: {
+    id?: number;
+    name?: string;
+    city?: string;
+    capacity?: number;
+    surface?: string;
+    image?: string;
+  };
+  squad: Array<{
+    id: number;
+    name: string;
+    age?: number;
+    number?: number;
+    position?: string;
+    photo?: string;
+  }>;
+  coach?: {
+    id?: number;
+    name?: string;
+    age?: number;
+    nationality?: string;
+    photo?: string;
+  };
+  injuries: Array<{
+    player: string;
+    reason?: string;
+    type?: string;
+    fixture?: string;
+  }>;
+  recentFixtures: Array<{
+    id: number;
+    date: string;
+    home: string;
+    away: string;
+    homeGoals?: number | null;
+    awayGoals?: number | null;
+    venue?: string;
+  }>;
+  recentLineups: Array<{
+    fixtureId: number;
+    date: string;
+    opponent: string;
+    formation?: string;
+    startXI: string[];
+  }>;
+  statistics?: unknown;
+  dataStatus: {
+    source: "live" | "partial" | "unavailable";
+    season: number;
+    errors: string[];
+    refreshedAt: string;
+  };
+}
+
 export interface MarketSelection {
   label: string;
   context?: string;
