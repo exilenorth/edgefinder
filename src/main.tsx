@@ -28,6 +28,7 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
 const FOLLOW_STORAGE_KEY = "edgefinder:follows:v1";
 const DEFAULT_STATS_SEASON = apiConfig.apiFootballSeason;
 const STATS_SEASON_OPTIONS = Array.from({ length: 4 }, (_, index) => DEFAULT_STATS_SEASON - index);
+const CURRENT_ROSTER_FALLBACK_SEASON = DEFAULT_STATS_SEASON - 2;
 const CONFIGURED_LEAGUE_NAME = "Premier League";
 
 type FixtureFilter = "all" | "following";
@@ -516,6 +517,7 @@ function StatsWorkspace({
   const [followedOnly, setFollowedOnly] = React.useState(false);
   const [selectedSeason, setSelectedSeason] = React.useState(DEFAULT_STATS_SEASON);
   const [historicalDossier, setHistoricalDossier] = React.useState<LeagueHistoricalDossier | undefined>();
+  const [currentRosterDossier, setCurrentRosterDossier] = React.useState<LeagueHistoricalDossier | undefined>();
   const [historicalLoading, setHistoricalLoading] = React.useState(false);
   const [selectedLeagueName, setSelectedLeagueName] = React.useState(leagueSummaries[0]?.name ?? "");
   const [selectedTeamKey, setSelectedTeamKey] = React.useState(
@@ -523,12 +525,20 @@ function StatsWorkspace({
   );
 
   const currentLeagueSummaries = React.useMemo(
-    () => leagueSummaries.filter((league) => isConfiguredLeague(league.name)),
-    [leagueSummaries]
+    () => {
+      const fixtureLeagues = leagueSummaries.filter((league) => isConfiguredLeague(league.name));
+      if (fixtureLeagues.some((league) => league.teamCount >= 10) || !currentRosterDossier) return fixtureLeagues;
+      return [buildHistoricalLeagueSummary(currentRosterDossier)];
+    },
+    [currentRosterDossier, leagueSummaries]
   );
   const currentTeamSummaries = React.useMemo(
-    () => teamSummaries.filter((team) => isConfiguredLeague(team.league)),
-    [teamSummaries]
+    () => {
+      const fixtureTeams = teamSummaries.filter((team) => isConfiguredLeague(team.league));
+      if (fixtureTeams.length >= 10 || !currentRosterDossier) return fixtureTeams;
+      return buildHistoricalTeamSummaries(currentRosterDossier);
+    },
+    [currentRosterDossier, teamSummaries]
   );
   const historicalLeagueSummaries = React.useMemo(
     () => (historicalDossier ? [buildHistoricalLeagueSummary(historicalDossier)] : []),
@@ -608,6 +618,28 @@ function StatsWorkspace({
       cancelled = true;
     };
   }, [selectedSeason, statsMode]);
+
+  React.useEffect(() => {
+    const fixtureTeams = teamSummaries.filter((team) => isConfiguredLeague(team.league));
+    if (fixtureTeams.length >= 10 || currentRosterDossier) return;
+
+    let cancelled = false;
+    fetch(`/api/leagues/${apiConfig.apiFootballLeagueId}/historical?season=${CURRENT_ROSTER_FALLBACK_SEASON}`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Current roster request failed: ${response.status}`);
+        return response.json() as Promise<LeagueHistoricalDossier>;
+      })
+      .then((dossier) => {
+        if (!cancelled) setCurrentRosterDossier(dossier);
+      })
+      .catch((error) => {
+        console.warn("Current roster fallback request failed", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRosterDossier, teamSummaries]);
 
   return (
     <section className="workspace stats-workspace">
