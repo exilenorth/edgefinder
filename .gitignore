@@ -5,3 +5,10 @@ dist/
 .env.local
 .env.*.local
 data/
+
+# Local API audit outputs
+reports/api-audit/*.md
+reports/api-audit/*.json
+!reports/
+!reports/api-audit/
+!reports/api-audit/.gitkeep

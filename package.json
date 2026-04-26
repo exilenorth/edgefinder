@@ -10,7 +10,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "server": "tsx server/index.ts",
-    "server:check": "tsc -p tsconfig.server.json"
+    "server:check": "tsc -p tsconfig.server.json",
+    "audit:api-football": "tsx scripts/audit-api-football.ts",
+    "audit:odds": "tsx scripts/audit-odds-api.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.4",
