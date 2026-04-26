@@ -6,18 +6,25 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc && vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "audit:api-football": "tsx scripts/audit-api-football.ts",
+    "audit:odds": "tsx scripts/audit-odds-api.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.4",
+    "dotenv": "^17.4.2",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sql.js": "^1.14.1",
     "typescript": "^5.7.2",
     "vite": "^5.4.11"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3"
+    "@types/react-dom": "^19.2.3",
+    "@types/sql.js": "^1.4.11",
+    "tsx": "^4.21.0"
   }
 }
