@@ -11,5 +11,13 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["server/**/*.ts", "src/types.ts", "src/providers/apiFootballClient.ts", "src/providers/theOddsApiClient.ts", "src/providers/mockProvider.ts", "src/providers/sportsDataProvider.ts"]
+  "include": [
+    "server/**/*.ts",
+    "scripts/**/*.ts",
+    "src/types.ts",
+    "src/providers/apiFootballClient.ts",
+    "src/providers/theOddsApiClient.ts",
+    "src/providers/mockProvider.ts",
+    "src/providers/sportsDataProvider.ts"
+  ]
 }
