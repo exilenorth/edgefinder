@@ -4,3 +4,9 @@ dist/
 .env
 .env.local
 .env.*.local
+
+# Local API audit outputs
+data/*.sqlite
+data/*.sqlite-*
+reports/api-audit/*.md
+reports/api-audit/*.json
