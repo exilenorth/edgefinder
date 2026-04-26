@@ -1,6 +1,20 @@
 # EdgeFinder
 
-Football betting decision-support dashboard.
+Football betting decision-support dashboard built around two clear product areas: **Betting Assistant** and **Research Hub**.
+
+## Product Structure
+
+EdgeFinder is intended to feel like two connected tools under one roof:
+
+1. **Betting Assistant** — a fast, opinionated decision area for finding fixtures and markets worth investigating.
+2. **Research Hub** — a deep evidence area for exploring leagues, teams, players, fixtures, and historical seasons.
+
+The goal is to separate decisions from evidence:
+
+- Betting Assistant answers: “What should I look at, why, and how much should I trust it?”
+- Research Hub answers: “Show me the underlying data so I can investigate properly.”
+
+See [`docs/product-structure.md`](docs/product-structure.md) for the detailed information architecture.
 
 ## Local Setup
 
@@ -15,6 +29,8 @@ Copy `.env.example` to `.env.local` and fill in your own API keys:
 ```bash
 VITE_THE_ODDS_API_KEY=...
 VITE_API_FOOTBALL_KEY=...
+THE_ODDS_API_KEY=...
+API_FOOTBALL_KEY=...
 ```
 
 For API-Football league seasons, use the season start year. For example, the 2025/26 Premier League season is `2025`.
@@ -37,7 +53,7 @@ The app renders through `backendProvider`, which calls local `/api` endpoints. T
 - The Odds API: `src/providers/theOddsApiClient.ts`
 - API-Football: `src/providers/apiFootballClient.ts`
 
-Keep API keys out of committed source. For a deployed app, move live API calls behind a small backend proxy so keys are not exposed in browser JavaScript.
+Keep API keys out of committed source. For a deployed app, live provider calls should remain behind the backend proxy so keys are not exposed in browser JavaScript.
 
 ## Caching Strategy
 
@@ -56,4 +72,5 @@ Suggested TTLs when live data is wired:
 2. The Odds API fetches market prices for the matching sport key, regions/bookmakers, and markets.
 3. A mapper reconciles events by home team, away team, and kick-off time.
 4. The model computes fair prices from expected goals and scorer threat.
-5. The UI highlights positive differences between model probability and market implied probability.
+5. The Betting Assistant highlights potential opportunities with confidence, freshness, and risk context.
+6. The Research Hub lets users inspect the supporting league, team, player, and fixture data.
