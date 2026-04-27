@@ -23,6 +23,8 @@ interface BettingAssistantWorkspaceProps {
   onSelectFixture: (fixtureId: string) => void;
   onToggleLeague: (league: string) => void;
   onToggleTeam: (team: TeamSnapshot) => void;
+  onOpenResearchLeague: (league: string) => void;
+  onOpenResearchTeam: (team: TeamSnapshot) => void;
 }
 
 export function BettingAssistantWorkspace({
@@ -35,7 +37,9 @@ export function BettingAssistantWorkspace({
   followedTeamIds,
   onSelectFixture,
   onToggleLeague,
-  onToggleTeam
+  onToggleTeam,
+  onOpenResearchLeague,
+  onOpenResearchTeam
 }: BettingAssistantWorkspaceProps) {
   const thesis = buildBetThesis(selected, analysis, cacheEvent);
 
@@ -51,11 +55,19 @@ export function BettingAssistantWorkspace({
 
       <header className="match-header">
         <div>
-          <p>{selected.competition}</p>
+          <button className="eyebrow-link" type="button" onClick={() => onOpenResearchLeague(selected.competition)}>
+            {selected.competition}
+          </button>
           <h1>
-            <LogoMark src={getTeamLogoUrl(selected.home)} label={selected.home.name} />
-            {selected.home.name} <span>vs</span> {selected.away.name}
-            <LogoMark src={getTeamLogoUrl(selected.away)} label={selected.away.name} />
+            <button className="entity-link" type="button" onClick={() => onOpenResearchTeam(selected.home)}>
+              <LogoMark src={getTeamLogoUrl(selected.home)} label={selected.home.name} />
+              {selected.home.name}
+            </button>
+            <span>vs</span>
+            <button className="entity-link" type="button" onClick={() => onOpenResearchTeam(selected.away)}>
+              {selected.away.name}
+              <LogoMark src={getTeamLogoUrl(selected.away)} label={selected.away.name} />
+            </button>
           </h1>
           <div className="meta-row">
             <span>{selected.venue}</span>

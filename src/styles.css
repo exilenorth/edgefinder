@@ -414,6 +414,46 @@ button {
   font-weight: 500;
 }
 
+.eyebrow-link,
+.entity-link {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0;
+  padding: 0;
+}
+
+.eyebrow-link {
+  color: #667789;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.entity-link {
+  align-items: center;
+  display: inline-flex;
+  gap: 10px;
+  font-size: inherit;
+  font-weight: 800;
+  line-height: 1;
+  text-align: left;
+}
+
+.eyebrow-link:hover,
+.entity-link:hover {
+  color: #147a62;
+}
+
+.eyebrow-link:focus-visible,
+.entity-link:focus-visible,
+.linked-fixture-row:focus-visible {
+  outline: 3px solid rgba(20, 122, 98, 0.22);
+  outline-offset: 4px;
+}
+
 .meta-row {
   display: flex;
   flex-wrap: wrap;
@@ -1140,6 +1180,18 @@ button {
 .detail-fixture-row {
   grid-template-columns: 160px 1fr auto;
   align-items: center;
+}
+
+.linked-fixture-row {
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.linked-fixture-row:hover {
+  background: #f3fffb;
+  border-color: #40c8a4;
 }
 
 .detail-fixture-row span,

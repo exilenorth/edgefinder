@@ -4,6 +4,12 @@ export type FixtureFilter = "all" | "following";
 export type DateFilter = "all" | "today" | "next24" | "weekend";
 export type AppView = "assistant" | "research";
 
+export type ResearchEntity =
+  | { type: "league"; name: string }
+  | { type: "team"; id: string; name: string }
+  | { type: "player"; id: string; name: string }
+  | { type: "fixture"; id: string; name: string };
+
 export interface LeagueSummary {
   name: string;
   logoUrl?: string;
