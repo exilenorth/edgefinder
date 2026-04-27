@@ -25,16 +25,19 @@ interface AppLocation {
 }
 
 export function App() {
+  const initialLocation = React.useMemo(() => parseLocationFromUrl(), []);
   const [fixtures, setFixtures] = React.useState<Fixture[]>([]);
   const [selectedFixture, setSelectedFixture] = React.useState<Fixture | undefined>();
-  const [selectedId, setSelectedId] = React.useState<string>("");
+  const [selectedId, setSelectedId] = React.useState<string>(initialLocation.fixtureId);
   const [cacheEvent, setCacheEvent] = React.useState<CacheEvent | undefined>();
   const [fixtureFilter, setFixtureFilter] = React.useState<FixtureFilter>("all");
   const [dateFilter, setDateFilter] = React.useState<DateFilter>("all");
   const [selectedLeague, setSelectedLeague] = React.useState<string>("all");
   const [expandedGroupKeys, setExpandedGroupKeys] = React.useState<Set<string>>(new Set());
-  const [appView, setAppView] = React.useState<AppView>("assistant");
-  const [selectedResearchEntity, setSelectedResearchEntity] = React.useState<ResearchEntity | undefined>();
+  const [appView, setAppView] = React.useState<AppView>(initialLocation.view);
+  const [selectedResearchEntity, setSelectedResearchEntity] = React.useState<ResearchEntity | undefined>(
+    initialLocation.researchEntity
+  );
   const [navigationHistory, setNavigationHistory] = React.useState<AppLocation[]>([]);
   const [follows, setFollows] = React.useState<FollowState>(() => loadFollows(FOLLOW_STORAGE_KEY));
 
@@ -73,13 +76,36 @@ export function App() {
   const visibleFixtureGroups = React.useMemo(() => groupFixturesByDate(visibleFixtures), [visibleFixtures]);
   const leagueSummaries = React.useMemo(() => buildLeagueSummaries(fixtures), [fixtures]);
   const teamSummaries = React.useMemo(() => buildTeamSummaries(fixtures), [fixtures]);
+  const currentLocation = React.useMemo<AppLocation>(
+    () => ({
+      view: appView,
+      fixtureId: selectedId,
+      researchEntity: selectedResearchEntity
+    }),
+    [appView, selectedId, selectedResearchEntity]
+  );
 
   React.useEffect(() => {
     fixtureProvider.listFixtures().then((items) => {
       setFixtures(items);
-      setSelectedId(items[0]?.id ?? "");
+      setSelectedId((current) => current || items[0]?.id || "");
     });
   }, [fixtureProvider]);
+
+  React.useEffect(() => {
+    if (!selectedId) return;
+    writeLocationToUrl(currentLocation, "replace");
+  }, [currentLocation, selectedId]);
+
+  React.useEffect(() => {
+    const handlePopState = () => {
+      applyLocation(parseLocationFromUrl());
+      setNavigationHistory((current) => current.slice(0, -1));
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   React.useEffect(() => {
     if (!selectedId) {
@@ -127,14 +153,6 @@ export function App() {
   const analysis = selected ? analyseFixture(selected) : undefined;
   const selectedIsFollowed = selected ? isFixtureFollowed(selected, followedTeamIds, followedLeagues) : false;
   const selectedFixtureCacheEvent = selected && cacheEvent?.key === getFixtureCacheKey(selected.id) ? cacheEvent : undefined;
-  const currentLocation = React.useMemo<AppLocation>(
-    () => ({
-      view: appView,
-      fixtureId: selectedId,
-      researchEntity: selectedResearchEntity
-    }),
-    [appView, selectedId, selectedResearchEntity]
-  );
 
   function toggleTeam(team: TeamSnapshot) {
     setFollows((current) => toggleFollow(current, "teams", team.id));
@@ -171,31 +189,56 @@ export function App() {
     setSelectedResearchEntity(location.researchEntity);
   }
 
+  function navigateToLocation(location: AppLocation, mode: "push" | "replace" = "push") {
+    applyLocation(location);
+    writeLocationToUrl(location, mode);
+  }
+
   function goBack() {
     const previousLocation = navigationHistory[navigationHistory.length - 1];
     if (!previousLocation) return;
 
     setNavigationHistory((current) => current.slice(0, -1));
-    applyLocation(previousLocation);
+    navigateToLocation(previousLocation);
   }
 
   function switchView(nextView: AppView) {
     if (nextView === appView) return;
 
     pushCurrentLocation();
-    setAppView(nextView);
+    navigateToLocation({
+      ...currentLocation,
+      view: nextView
+    });
   }
 
   function openResearch(entity: ResearchEntity) {
     pushCurrentLocation();
-    setSelectedResearchEntity(entity);
-    setAppView("research");
+    navigateToLocation({
+      view: "research",
+      fixtureId: selectedId,
+      researchEntity: entity
+    });
   }
 
   function openAssistantFixture(fixtureId: string) {
     pushCurrentLocation();
+    navigateToLocation({
+      view: "assistant",
+      fixtureId,
+      researchEntity: selectedResearchEntity
+    });
+  }
+
+  function selectFixture(fixtureId: string) {
     setSelectedId(fixtureId);
-    setAppView("assistant");
+    writeLocationToUrl(
+      {
+        ...currentLocation,
+        fixtureId
+      },
+      "replace"
+    );
   }
 
   return (
@@ -217,7 +260,7 @@ export function App() {
             setFixtureFilter={setFixtureFilter}
             setDateFilter={setDateFilter}
             setSelectedLeague={setSelectedLeague}
-            setSelectedId={setSelectedId}
+            setSelectedId={selectFixture}
             toggleFixtureGroup={toggleFixtureGroup}
             formatKickoffTime={formatKickoffTime}
           />
@@ -247,7 +290,7 @@ export function App() {
           selectedIsFollowed={selectedIsFollowed}
           followedLeagues={followedLeagues}
           followedTeamIds={followedTeamIds}
-          onSelectFixture={setSelectedId}
+          onSelectFixture={selectFixture}
           onToggleLeague={toggleLeague}
           onToggleTeam={toggleTeam}
           onOpenResearchLeague={(league) => openResearch({ type: "league", name: league })}
@@ -277,6 +320,64 @@ function isSameLocation(first: AppLocation, second: AppLocation) {
 function getResearchEntityKey(entity: ResearchEntity | undefined) {
   if (!entity) return "";
   return entity.type === "league" ? `${entity.type}:${entity.name}` : `${entity.type}:${entity.id}:${entity.name}`;
+}
+
+function parseLocationFromUrl(): AppLocation {
+  const params = new URLSearchParams(window.location.search);
+  const view = params.get("view") === "research" ? "research" : "assistant";
+  const fixtureId = params.get("fixture") ?? "";
+  const researchEntity = parseResearchEntity(params);
+
+  return {
+    view,
+    fixtureId,
+    researchEntity
+  };
+}
+
+function parseResearchEntity(params: URLSearchParams): ResearchEntity | undefined {
+  const type = params.get("entity");
+  const id = params.get("entityId") ?? "";
+  const name = params.get("entityName") ?? "";
+
+  if (type === "league" && name) {
+    return { type, name };
+  }
+
+  if ((type === "team" || type === "player" || type === "fixture") && id && name) {
+    return { type, id, name };
+  }
+
+  return undefined;
+}
+
+function writeLocationToUrl(location: AppLocation, mode: "push" | "replace") {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.searchParams.set("view", location.view);
+
+  if (location.fixtureId) {
+    url.searchParams.set("fixture", location.fixtureId);
+  }
+
+  if (location.researchEntity) {
+    url.searchParams.set("entity", location.researchEntity.type);
+    url.searchParams.set("entityName", location.researchEntity.name);
+
+    if (location.researchEntity.type !== "league") {
+      url.searchParams.set("entityId", location.researchEntity.id);
+    }
+  }
+
+  const nextPath = `${url.pathname}${url.search}${url.hash}`;
+  const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextPath === currentPath) return;
+
+  if (mode === "push") {
+    window.history.pushState(null, "", nextPath);
+  } else {
+    window.history.replaceState(null, "", nextPath);
+  }
 }
 
 
