@@ -6,6 +6,8 @@ interface Scoreline {
   probability: number;
 }
 
+export type ModelConfidence = "Low" | "Medium" | "High";
+
 export function analyseFixture(fixture: Fixture) {
   const homeExpectedGoals = expectedGoals(fixture.home, fixture.away, true);
   const awayExpectedGoals = expectedGoals(fixture.away, fixture.home, false);
@@ -47,9 +49,11 @@ export function analyseFixture(fixture: Fixture) {
     bestMarket: {
       ...bestMarket,
       note:
-        bestMarket.edge > 0
+        bestMarket.edge > 0 && bestMarket.marketOdds
           ? `Model probability is ${formatPercent(bestMarket.edge)} above implied market probability.`
-          : "No positive edge in the sample market."
+          : bestMarket.edge > 0
+            ? "Model probability is above the internal sample baseline, but no live market price is attached."
+            : "No positive edge in the sample market."
     },
     confidence: confidenceLabel(fixture)
   };
@@ -127,7 +131,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function confidenceLabel(fixture: Fixture) {
+function confidenceLabel(fixture: Fixture): ModelConfidence {
   const starters = [...fixture.home.players, ...fixture.away.players].filter((player) => player.startsLikely).length;
   if (fixture.headToHead.length >= 3 && starters >= 10) return "Medium";
   return "Low";
