@@ -1,8 +1,8 @@
 import { Activity, Database, Goal, ShieldCheck, Target, TrendingUp } from "lucide-react";
+import type React from "react";
 import { FollowToggle } from "../../components/FollowToggle";
 import { LogoMark } from "../../components/LogoMark";
 import { Metric } from "../../components/Metric";
-import { Panel } from "../../components/Panel";
 import { formatPercent, type FixtureAnalysis } from "../../model/probability";
 import type { CacheEvent } from "../../providers/cachedProvider";
 import type { Fixture, MarketSelection, TeamSnapshot } from "../../types";
@@ -41,6 +41,14 @@ export function BettingAssistantWorkspace({
 
   return (
     <section className="workspace">
+      <OpportunityDashboard
+        fixtures={fixtures}
+        selectedFixtureId={selected.id}
+        followedTeamIds={followedTeamIds}
+        followedLeagues={followedLeagues}
+        onSelectFixture={onSelectFixture}
+      />
+
       <header className="match-header">
         <div>
           <p>{selected.competition}</p>
@@ -62,35 +70,7 @@ export function BettingAssistantWorkspace({
             {selectedIsFollowed ? <span>In watchlist</span> : null}
           </div>
         </div>
-        <div className="edge-summary">
-          <span>Assistant verdict</span>
-          <strong>{thesis.status === "playable" ? "Playable" : thesis.status === "watch" ? "Watch" : "No edge"}</strong>
-          <small>{thesis.verdict}</small>
-        </div>
       </header>
-
-      <OpportunityDashboard fixtures={fixtures} selectedFixtureId={selected.id} onSelectFixture={onSelectFixture} />
-
-      <section className="follow-panel" aria-label="Follow this fixture">
-        <FollowToggle
-          label={selected.competition}
-          eyebrow="League"
-          active={followedLeagues.has(selected.competition)}
-          onClick={() => onToggleLeague(selected.competition)}
-        />
-        <FollowToggle
-          label={selected.home.name}
-          eyebrow="Team"
-          active={followedTeamIds.has(selected.home.id)}
-          onClick={() => onToggleTeam(selected.home)}
-        />
-        <FollowToggle
-          label={selected.away.name}
-          eyebrow="Team"
-          active={followedTeamIds.has(selected.away.id)}
-          onClick={() => onToggleTeam(selected.away)}
-        />
-      </section>
 
       <section className="decision-grid" aria-label="Assistant decision summary">
         <BetThesisPanel thesis={thesis} />
@@ -106,20 +86,20 @@ export function BettingAssistantWorkspace({
       </section>
 
       <section className="dashboard-grid">
-        <Panel title="Team Form" icon={<TrendingUp size={18} />}>
+        <EvidencePanel title="Team Form" icon={<TrendingUp size={18} />}>
           <TeamForm fixture={selected} />
-        </Panel>
+        </EvidencePanel>
 
-        <Panel title="Goal Projection" icon={<Target size={18} />}>
+        <EvidencePanel title="Goal Projection" icon={<Target size={18} />}>
           <div className="xg-grid">
             <Metric label={`${selected.home.name} projected goals`} value={analysis.homeExpectedGoals.toFixed(2)} />
             <Metric label={`${selected.away.name} projected goals`} value={analysis.awayExpectedGoals.toFixed(2)} />
             <Metric label="Both teams score" value={formatPercent(analysis.bttsProbability)} />
             <Metric label="Over 2.5 goals" value={formatPercent(analysis.over25Probability)} />
           </div>
-        </Panel>
+        </EvidencePanel>
 
-        <Panel title="Head To Head" icon={<ShieldCheck size={18} />}>
+        <EvidencePanel title="Head To Head" icon={<ShieldCheck size={18} />}>
           <div className="h2h-list">
             {selected.headToHead.map((match) => (
               <div className="h2h-row" key={`${match.date}-${match.home}-${match.away}`}>
@@ -133,9 +113,9 @@ export function BettingAssistantWorkspace({
               </div>
             ))}
           </div>
-        </Panel>
+        </EvidencePanel>
 
-        <Panel title="Likely Scorelines" icon={<Goal size={18} />}>
+        <EvidencePanel title="Likely Scorelines" icon={<Goal size={18} />}>
           <div className="scoreline-grid">
             {analysis.topScorelines.map((scoreline) => (
               <div className="scoreline" key={`${scoreline.home}-${scoreline.away}`}>
@@ -146,9 +126,9 @@ export function BettingAssistantWorkspace({
               </div>
             ))}
           </div>
-        </Panel>
+        </EvidencePanel>
 
-        <Panel title="Anytime Scorers" icon={<Activity size={18} />} wide>
+        <EvidencePanel title="Anytime Scorers" icon={<Activity size={18} />} wide>
           <div className="scorer-table">
             <div className="table-head">
               <span>Player</span>
@@ -167,7 +147,34 @@ export function BettingAssistantWorkspace({
               </div>
             ))}
           </div>
-        </Panel>
+        </EvidencePanel>
+      </section>
+
+      <section className="track-panel" aria-label="Track this fixture">
+        <div>
+          <p>Track this</p>
+          <h2>Follow the league or teams behind this opportunity.</h2>
+        </div>
+        <div className="follow-panel compact">
+          <FollowToggle
+            label={selected.competition}
+            eyebrow="League"
+            active={followedLeagues.has(selected.competition)}
+            onClick={() => onToggleLeague(selected.competition)}
+          />
+          <FollowToggle
+            label={selected.home.name}
+            eyebrow="Team"
+            active={followedTeamIds.has(selected.home.id)}
+            onClick={() => onToggleTeam(selected.home)}
+          />
+          <FollowToggle
+            label={selected.away.name}
+            eyebrow="Team"
+            active={followedTeamIds.has(selected.away.id)}
+            onClick={() => onToggleTeam(selected.away)}
+          />
+        </div>
       </section>
 
       <footer className="note">
@@ -175,6 +182,31 @@ export function BettingAssistantWorkspace({
         odds, and only stake money you can afford to lose.
       </footer>
     </section>
+  );
+}
+
+function EvidencePanel({
+  title,
+  icon,
+  wide,
+  children
+}: {
+  title: string;
+  icon: React.ReactNode;
+  wide?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className={wide ? "evidence-panel wide" : "evidence-panel"}>
+      <summary>
+        <span>
+          {icon}
+          {title}
+        </span>
+        <small>Open evidence</small>
+      </summary>
+      <div className="evidence-panel-body">{children}</div>
+    </details>
   );
 }
 
