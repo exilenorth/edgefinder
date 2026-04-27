@@ -176,6 +176,8 @@ export function App() {
   }
 
   function pushCurrentLocation() {
+    if (currentLocation.view === "assistant" && !currentLocation.fixtureId) return;
+
     setNavigationHistory((current) => {
       const previous = current[current.length - 1];
       if (previous && isSameLocation(previous, currentLocation)) return current;
@@ -223,6 +225,9 @@ export function App() {
 
   function openAssistantFixture(fixtureId: string) {
     pushCurrentLocation();
+    setFixtureFilter("all");
+    setDateFilter("all");
+    setSelectedLeague("all");
     navigateToLocation({
       view: "assistant",
       fixtureId,
