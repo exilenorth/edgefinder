@@ -9,20 +9,13 @@ import { backendProvider } from "../providers/backendProvider";
 import { createCachedSportsDataProvider, type CacheEvent } from "../providers/cachedProvider";
 import { analyseFixture } from "../model/probability";
 import type { Fixture, TeamSnapshot } from "../types";
-import { getLeagueLogoUrl } from "../data/eplClubProfiles";
+import { groupFixturesByDate, matchesDateWindow } from "../utils/fixtureFilters";
+import { type FollowState, isFixtureFollowed, loadFollows, toggleFollow } from "../utils/follows";
+import { formatKickoffTime } from "../utils/formatting";
+import { buildLeagueSummaries, buildTeamSummaries } from "../utils/researchSummaries";
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const FOLLOW_STORAGE_KEY = "edgefinder:follows:v1";
-
-interface FollowState {
-  teams: string[];
-  leagues: string[];
-}
-
-const EMPTY_FOLLOWS: FollowState = {
-  teams: [],
-  leagues: []
-};
 
 export function App() {
   const [fixtures, setFixtures] = React.useState<Fixture[]>([]);
@@ -34,7 +27,7 @@ export function App() {
   const [selectedLeague, setSelectedLeague] = React.useState<string>("all");
   const [expandedGroupKeys, setExpandedGroupKeys] = React.useState<Set<string>>(new Set());
   const [appView, setAppView] = React.useState<AppView>("assistant");
-  const [follows, setFollows] = React.useState<FollowState>(() => loadFollows());
+  const [follows, setFollows] = React.useState<FollowState>(() => loadFollows(FOLLOW_STORAGE_KEY));
 
   const fixtureProvider = React.useMemo(
     () =>
@@ -201,183 +194,3 @@ export function App() {
 }
 
 
-function buildLeagueSummaries(fixtures: Fixture[]): LeagueSummary[] {
-  const leagues = new Map<string, { fixtures: Fixture[]; teams: Set<string>; logoUrl?: string }>();
-
-  fixtures.forEach((fixture) => {
-    const current = leagues.get(fixture.competition) ?? { fixtures: [], teams: new Set<string>(), logoUrl: undefined };
-    current.fixtures.push(fixture);
-    current.teams.add(fixture.home.id);
-    current.teams.add(fixture.away.id);
-    current.logoUrl = current.logoUrl ?? fixture.competitionLogoUrl ?? getLeagueLogoUrl(fixture.competition);
-    leagues.set(fixture.competition, current);
-  });
-
-  return Array.from(leagues.entries())
-    .map(([name, value]) => ({
-      name,
-      logoUrl: value.logoUrl,
-      fixtureCount: value.fixtures.length,
-      teamCount: value.teams.size,
-      fixtures: value.fixtures
-        .slice()
-        .sort((first, second) => new Date(first.kickoff).getTime() - new Date(second.kickoff).getTime()),
-      nextKickoff: value.fixtures
-        .slice()
-        .sort((first, second) => new Date(first.kickoff).getTime() - new Date(second.kickoff).getTime())[0]?.kickoff
-    }))
-    .sort((first, second) => first.name.localeCompare(second.name));
-}
-
-function buildTeamSummaries(fixtures: Fixture[]): TeamSummary[] {
-  const teams = new Map<string, TeamSummary>();
-
-  fixtures
-    .slice()
-    .sort((first, second) => new Date(first.kickoff).getTime() - new Date(second.kickoff).getTime())
-    .forEach((fixture) => {
-      [fixture.home, fixture.away].forEach((team) => {
-        const key = `${fixture.competition}:${team.id}`;
-        const current = teams.get(key);
-        teams.set(key, {
-          team,
-          league: fixture.competition,
-          fixtureCount: (current?.fixtureCount ?? 0) + 1,
-          nextFixture: current?.nextFixture ?? fixture,
-          fixtures: [...(current?.fixtures ?? []), fixture]
-        });
-      });
-    });
-
-  return Array.from(teams.values()).sort((first, second) => {
-    const leagueSort = first.league.localeCompare(second.league);
-    return leagueSort !== 0 ? leagueSort : first.team.name.localeCompare(second.team.name);
-  });
-}
-
-function groupFixturesByDate(fixtures: Fixture[]): FixtureGroup[] {
-  const groups = new Map<string, Fixture[]>();
-
-  fixtures
-    .slice()
-    .sort((first, second) => new Date(first.kickoff).getTime() - new Date(second.kickoff).getTime())
-    .forEach((fixture) => {
-      const date = new Date(fixture.kickoff);
-      const key = [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, "0"),
-        String(date.getDate()).padStart(2, "0")
-      ].join("-");
-      groups.set(key, [...(groups.get(key) ?? []), fixture]);
-    });
-
-  return Array.from(groups.entries()).map(([key, groupedFixtures]) => ({
-    key,
-    label: formatFixtureGroupLabel(groupedFixtures[0].kickoff),
-    isPriority: isPriorityFixtureGroup(groupedFixtures[0].kickoff),
-    fixtures: groupedFixtures
-  }));
-}
-
-function formatFixtureGroupLabel(value: string) {
-  const fixtureDate = new Date(value);
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-
-  if (isSameCalendarDay(fixtureDate, today)) {
-    return "Today";
-  }
-
-  if (isSameCalendarDay(fixtureDate, tomorrow)) {
-    return "Tomorrow";
-  }
-
-  return new Intl.DateTimeFormat("en-GB", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short"
-  }).format(fixtureDate);
-}
-
-function formatKickoffTime(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date(value));
-}
-
-function isPriorityFixtureGroup(value: string) {
-  const fixtureDate = new Date(value);
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-
-  return isSameCalendarDay(fixtureDate, today) || isSameCalendarDay(fixtureDate, tomorrow);
-}
-
-function matchesDateWindow(fixture: Fixture, filter: DateFilter) {
-  const kickoff = new Date(fixture.kickoff);
-  const now = new Date();
-
-  if (filter === "all") {
-    return true;
-  }
-
-  if (filter === "today") {
-    return isSameCalendarDay(kickoff, now);
-  }
-
-  if (filter === "next24") {
-    const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    return kickoff >= now && kickoff <= next24Hours;
-  }
-
-  const day = kickoff.getDay();
-  return day === 0 || day === 6;
-}
-
-function isSameCalendarDay(first: Date, second: Date) {
-  return (
-    first.getFullYear() === second.getFullYear() &&
-    first.getMonth() === second.getMonth() &&
-    first.getDate() === second.getDate()
-  );
-}
-
-function loadFollows(): FollowState {
-  try {
-    const rawValue = window.localStorage.getItem(FOLLOW_STORAGE_KEY);
-    if (!rawValue) {
-      return EMPTY_FOLLOWS;
-    }
-
-    const parsedValue = JSON.parse(rawValue) as Partial<FollowState>;
-    return {
-      teams: Array.isArray(parsedValue.teams) ? parsedValue.teams.filter(Boolean) : [],
-      leagues: Array.isArray(parsedValue.leagues) ? parsedValue.leagues.filter(Boolean) : []
-    };
-  } catch {
-    return EMPTY_FOLLOWS;
-  }
-}
-
-function toggleFollow(state: FollowState, key: keyof FollowState, id: string): FollowState {
-  const currentValues = state[key];
-  const nextValues = currentValues.includes(id)
-    ? currentValues.filter((value) => value !== id)
-    : [...currentValues, id];
-
-  return {
-    ...state,
-    [key]: nextValues
-  };
-}
-
-function isFixtureFollowed(fixture: Fixture, followedTeams: Set<string>, followedLeagues: Set<string>) {
-  return (
-    followedLeagues.has(fixture.competition) ||
-    followedTeams.has(fixture.home.id) ||
-    followedTeams.has(fixture.away.id)
-  );
-}
