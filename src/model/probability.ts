@@ -55,6 +55,8 @@ export function analyseFixture(fixture: Fixture) {
   };
 }
 
+export type FixtureAnalysis = ReturnType<typeof analyseFixture>;
+
 function expectedGoals(attack: TeamSnapshot, defence: TeamSnapshot, homeAdvantage: boolean) {
   const recentAttack = attack.form.xgFor / 5;
   const recentDefenceAllowed = defence.form.xgAgainst / 5;
