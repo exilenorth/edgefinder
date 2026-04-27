@@ -6,6 +6,8 @@ interface Scoreline {
   probability: number;
 }
 
+export type ModelConfidence = "Low" | "Medium" | "High";
+
 export function analyseFixture(fixture: Fixture) {
   const homeExpectedGoals = expectedGoals(fixture.home, fixture.away, true);
   const awayExpectedGoals = expectedGoals(fixture.away, fixture.home, false);
@@ -127,7 +129,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function confidenceLabel(fixture: Fixture) {
+function confidenceLabel(fixture: Fixture): ModelConfidence {
   const starters = [...fixture.home.players, ...fixture.away.players].filter((player) => player.startsLikely).length;
   if (fixture.headToHead.length >= 3 && starters >= 10) return "Medium";
   return "Low";
