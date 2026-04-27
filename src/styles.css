@@ -637,7 +637,7 @@ button {
 
 .stats-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid #d7dde3;
   border-radius: 8px;
   background: #ffffff;
@@ -693,6 +693,48 @@ button {
 .stats-browser-item small {
   color: #667789;
   font-size: 0.82rem;
+}
+
+.stats-browser-note {
+  border: 1px dashed #c3ccd5;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #526272;
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.stats-browser-note svg {
+  color: #40c8a4;
+}
+
+.stats-browser-note span {
+  color: #667789;
+  font-size: 0.9rem;
+}
+
+.research-mode-note {
+  border: 1px solid #d7dde3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #526272;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  line-height: 1.4;
+}
+
+.research-mode-note strong {
+  flex: 0 0 auto;
+  color: #17202a;
+}
+
+.research-mode-note.historical {
+  border-color: #f0d28a;
+  background: #fffaf0;
 }
 
 .stats-detail {
@@ -867,6 +909,22 @@ button {
 
 .coverage-item span {
   color: #667789;
+}
+
+.coverage-item small {
+  color: #667789;
+  line-height: 1.35;
+}
+
+.placeholder-panel {
+  border: 1px dashed #c3ccd5;
+  border-radius: 8px;
+  background: #f5f7f9;
+  color: #526272;
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+  line-height: 1.5;
 }
 
 .detail-fixture-row,
