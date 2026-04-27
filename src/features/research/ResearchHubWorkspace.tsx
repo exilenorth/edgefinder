@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, CalendarDays, Database, Goal, Search, ShieldCheck, Star, Target, TrendingUp, Trophy } from "lucide-react";
+import { Activity, CalendarDays, Database, Goal, Search, ShieldCheck, Star, Target, TrendingUp, Trophy, UserRound } from "lucide-react";
 import type { LeagueSummary, TeamSummary } from "../../app/types";
 import { FollowToggle } from "../../components/FollowToggle";
 import { LogoMark } from "../../components/LogoMark";
@@ -15,8 +15,14 @@ const STATS_SEASON_OPTIONS = Array.from({ length: 4 }, (_, index) => DEFAULT_STA
 const CONFIGURED_LEAGUE_NAME = "Premier League";
 
 type StatsMode = "current" | "historical";
-type StatsTab = "leagues" | "teams";
+type StatsTab = "leagues" | "teams" | "players";
 type TeamInsightTab = "overview" | "squad" | "lineups" | "manager" | "stadium" | "fixtures" | "transfers";
+
+interface CoverageItem {
+  label: string;
+  enabled: boolean;
+  note?: string;
+}
 
 export function ResearchHubWorkspace({
   leagueSummaries,
@@ -40,6 +46,7 @@ export function ResearchHubWorkspace({
   const [selectedSeason, setSelectedSeason] = React.useState(DEFAULT_STATS_SEASON);
   const [historicalDossier, setHistoricalDossier] = React.useState<LeagueHistoricalDossier | undefined>();
   const [historicalLoading, setHistoricalLoading] = React.useState(false);
+  const [historicalError, setHistoricalError] = React.useState<string | undefined>();
   const [selectedLeagueName, setSelectedLeagueName] = React.useState(leagueSummaries[0]?.name ?? "");
   const [selectedTeamKey, setSelectedTeamKey] = React.useState(
     teamSummaries[0] ? getTeamSummaryKey(teamSummaries[0]) : ""
@@ -120,6 +127,7 @@ export function ResearchHubWorkspace({
 
     let cancelled = false;
     setHistoricalLoading(true);
+    setHistoricalError(undefined);
     fetch(`/api/leagues/${apiConfig.apiFootballLeagueId}/historical?season=${selectedSeason}`)
       .then((response) => {
         if (!response.ok) throw new Error(`Historical league request failed: ${response.status}`);
@@ -130,7 +138,10 @@ export function ResearchHubWorkspace({
       })
       .catch((error) => {
         console.warn("Historical league request failed", error);
-        if (!cancelled) setHistoricalDossier(undefined);
+        if (!cancelled) {
+          setHistoricalDossier(undefined);
+          setHistoricalError(error instanceof Error ? error.message : "Historical league request failed.");
+        }
       })
       .finally(() => {
         if (!cancelled) setHistoricalLoading(false);
@@ -161,7 +172,7 @@ export function ResearchHubWorkspace({
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search leagues or teams"
+            placeholder="Search leagues, teams, or players"
             type="search"
           />
         </label>
@@ -193,6 +204,15 @@ export function ResearchHubWorkspace({
         </label>
       </section>
 
+      <section className={`research-mode-note ${statsMode}`} aria-label="Research mode context">
+        <strong>{statsMode === "current" ? "Current season workspace" : "Historical season workspace"}</strong>
+        <span>
+          {statsMode === "current"
+            ? "Current views blend loaded fixtures, curated EPL profiles, cached provider data, and clearly marked estimates."
+            : "Historical views are intended to be API-backed once per completed season, then treated as static local evidence."}
+        </span>
+      </section>
+
       <section className="stats-centre">
         <aside className="stats-browser" aria-label="Stats browser">
           <div className="stats-tabs">
@@ -209,6 +229,13 @@ export function ResearchHubWorkspace({
               onClick={() => setStatsTab("teams")}
             >
               Teams
+            </button>
+            <button
+              className={statsTab === "players" ? "is-active" : ""}
+              type="button"
+              onClick={() => setStatsTab("players")}
+            >
+              Players
             </button>
           </div>
 
@@ -230,7 +257,7 @@ export function ResearchHubWorkspace({
                 </button>
               ))}
             </div>
-          ) : (
+          ) : statsTab === "teams" ? (
             <div className="stats-browser-list">
               {filteredTeams.map((teamSummary) => (
                 <button
@@ -250,11 +277,21 @@ export function ResearchHubWorkspace({
                 </button>
               ))}
             </div>
+          ) : (
+            <div className="stats-browser-list">
+              <div className="stats-browser-note">
+                <UserRound size={18} aria-hidden="true" />
+                <strong>Player research coming soon</strong>
+                <span>Player pages will use season stats, match stats, lineups, injuries, and scorer-market relevance.</span>
+              </div>
+            </div>
           )}
         </aside>
 
         <div className="stats-detail">
-          {statsMode === "historical" ? (
+          {statsTab === "players" ? (
+            <PlayerResearchPlaceholder statsMode={statsMode} selectedSeason={selectedSeason} />
+          ) : statsMode === "historical" ? (
             statsTab === "teams" && selectedTeam ? (
               <TeamDetail
                 summary={selectedTeam}
@@ -263,7 +300,12 @@ export function ResearchHubWorkspace({
                 onToggleFollow={() => onToggleTeam(selectedTeam.team)}
               />
             ) : (
-              <HistoricalLeagueDetail dossier={historicalDossier} loading={historicalLoading} selectedSeason={selectedSeason} />
+              <HistoricalLeagueDetail
+                dossier={historicalDossier}
+                loading={historicalLoading}
+                error={historicalError}
+                selectedSeason={selectedSeason}
+              />
             )
           ) : statsTab === "leagues" && selectedLeague ? (
             <LeagueDetail
@@ -295,13 +337,15 @@ export function ResearchHubWorkspace({
 function HistoricalLeagueDetail({
   dossier,
   loading,
+  error,
   selectedSeason
 }: {
   dossier: LeagueHistoricalDossier | undefined;
   loading: boolean;
+  error?: string;
   selectedSeason: number;
 }) {
-  const coverageItems = dossier?.coverage ? Object.entries(flattenCoverage(dossier.coverage)) : [];
+  const coverageItems = dossier?.coverage ? flattenCoverage(dossier.coverage) : [];
 
   return (
     <>
@@ -354,7 +398,13 @@ function HistoricalLeagueDetail({
               ))}
             </div>
           ) : (
-            <div className="stats-empty">{loading ? "Loading historical table..." : "No historical table returned for this season."}</div>
+            <div className="stats-empty">
+              {loading
+                ? "Loading historical table..."
+                : error
+                  ? `Historical data request failed: ${error}`
+                  : "No historical table returned for this season."}
+            </div>
           )}
         </Panel>
 
@@ -366,20 +416,67 @@ function HistoricalLeagueDetail({
           <PlayerRankings players={dossier?.topAssists ?? []} metric="assists" />
         </Panel>
 
-        <Panel title="Coverage Planner" icon={<Database size={18} />} wide>
-          {coverageItems.length ? (
-            <div className="coverage-grid">
-              {coverageItems.map(([label, enabled]) => (
-                <div className={enabled ? "coverage-item is-on" : "coverage-item"} key={label}>
-                  <strong>{enabled ? "Available" : "Unavailable"}</strong>
-                  <span>{label}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="stats-empty">Coverage data is not available for this league-season yet.</div>
-          )}
+        <CoveragePanel
+          title="Coverage / Data Availability"
+          items={coverageItems}
+          empty="Coverage data is not available for this league-season yet."
+        />
+      </section>
+    </>
+  );
+}
+
+function PlayerResearchPlaceholder({
+  statsMode,
+  selectedSeason
+}: {
+  statsMode: StatsMode;
+  selectedSeason: number;
+}) {
+  return (
+    <>
+      <header className="detail-header">
+        <div className="entity-heading">
+          <LogoMark label="Players" size="large" />
+          <div>
+            <p>Player Research</p>
+            <h2>Player intelligence workspace</h2>
+            <span className="season-chip">
+              {statsMode === "historical" ? "Historical" : "Current"} | {formatSeasonLabel(selectedSeason)}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <section className="detail-grid">
+        <Panel title="Players Coming Soon" icon={<UserRound size={18} />} wide>
+          <div className="placeholder-panel">
+            <strong>Player-level research will sit here.</strong>
+            <span>
+              This area will cover minutes, starts, goals, assists, injuries, shots, cards, and scorer-market relevance once the
+              player sync layer is in place.
+            </span>
+          </div>
         </Panel>
+
+        <Panel title="Planned Player Evidence" icon={<Database size={18} />}>
+          <div className="data-requirements">
+            <div>
+              <strong>Season profile</strong>
+              <span>Minutes, starts, goals, assists, shots, and card context from `/players`.</span>
+            </div>
+            <div>
+              <strong>Match trend</strong>
+              <span>Per-fixture player stats from `/fixtures/players` where available.</span>
+            </div>
+            <div>
+              <strong>Availability</strong>
+              <span>Injuries, suspensions, and expected starter signals from `/injuries` and `/fixtures/lineups`.</span>
+            </div>
+          </div>
+        </Panel>
+
+        <CoveragePanel title="Player Coverage Targets" items={getPlayerCoverageItems()} />
       </section>
     </>
   );
@@ -480,19 +577,53 @@ function LeagueDetail({
 
         <Panel title="Upcoming Fixtures" icon={<CalendarDays size={18} />} wide>
           <div className="detail-fixture-list">
-            {league.fixtures.slice(0, 10).map((fixture) => (
-              <div className="detail-fixture-row" key={fixture.id}>
-                <span>{formatDateTime(fixture.kickoff)}</span>
-                <strong>
-                  {fixture.home.name} v {fixture.away.name}
-                </strong>
-                <small>{fixture.venue}</small>
-              </div>
-            ))}
+            {league.fixtures.length ? (
+              league.fixtures.slice(0, 10).map((fixture) => (
+                <div className="detail-fixture-row" key={fixture.id}>
+                  <span>{formatDateTime(fixture.kickoff)}</span>
+                  <strong>
+                    {fixture.home.name} v {fixture.away.name}
+                  </strong>
+                  <small>{fixture.venue}</small>
+                </div>
+              ))
+            ) : (
+              <div className="stats-empty">No current fixtures are loaded for this league yet.</div>
+            )}
           </div>
         </Panel>
+
+        <CoveragePanel title="Coverage / Data Availability" items={getCurrentCoverageItems()} />
       </section>
     </>
+  );
+}
+
+function CoveragePanel({
+  title,
+  items,
+  empty
+}: {
+  title: string;
+  items: CoverageItem[];
+  empty?: string;
+}) {
+  return (
+    <Panel title={title} icon={<Database size={18} />} wide>
+      {items.length ? (
+        <div className="coverage-grid">
+          {items.map((item) => (
+            <div className={item.enabled ? "coverage-item is-on" : "coverage-item"} key={item.label}>
+              <strong>{item.enabled ? "Available" : "Unavailable"}</strong>
+              <span>{item.label}</span>
+              {item.note ? <small>{item.note}</small> : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="stats-empty">{empty ?? "Coverage data is not available yet."}</div>
+      )}
+    </Panel>
   );
 }
 
@@ -1198,20 +1329,45 @@ function formatSeasonLabel(season: number) {
   return `${season}/${String(season + 1).slice(-2)}`;
 }
 
-function flattenCoverage(coverage: NonNullable<LeagueHistoricalDossier["coverage"]>) {
-  return {
-    Standings: Boolean(coverage.standings),
-    Players: Boolean(coverage.players),
-    "Top scorers": Boolean(coverage.topScorers),
-    "Top assists": Boolean(coverage.topAssists),
-    Injuries: Boolean(coverage.injuries),
-    Predictions: Boolean(coverage.predictions),
-    Odds: Boolean(coverage.odds),
-    Events: Boolean(coverage.fixtures?.events),
-    Lineups: Boolean(coverage.fixtures?.lineups),
-    "Fixture stats": Boolean(coverage.fixtures?.statisticsFixtures),
-    "Player match stats": Boolean(coverage.fixtures?.statisticsPlayers)
-  };
+function getCurrentCoverageItems(): CoverageItem[] {
+  return [
+    { label: "Fixtures", enabled: true, note: "Loaded through provider/cache fallback." },
+    { label: "Teams", enabled: true, note: "Current EPL roster is normalised locally." },
+    { label: "Standings", enabled: false, note: "Requires plan-supported current-season API-Football coverage." },
+    { label: "Lineups", enabled: false, note: "Planned via `/fixtures/lineups` once available." },
+    { label: "Fixture stats", enabled: false, note: "Planned via `/fixtures/statistics`." },
+    { label: "Player match stats", enabled: false, note: "Planned via `/fixtures/players`." },
+    { label: "Injuries", enabled: false, note: "Planned via `/injuries`." },
+    { label: "Transfers", enabled: true, note: "Available in team dossiers when provider returns data." },
+    { label: "Odds", enabled: true, note: "Loaded separately from The Odds API." }
+  ];
+}
+
+function getPlayerCoverageItems(): CoverageItem[] {
+  return [
+    { label: "Squad lists", enabled: true, note: "Available on team dossier where provider access allows." },
+    { label: "Top scorers", enabled: true, note: "Historical league dossier already supports this." },
+    { label: "Top assists", enabled: true, note: "Historical league dossier already supports this." },
+    { label: "Player season stats", enabled: false, note: "Planned from `/players`." },
+    { label: "Player match stats", enabled: false, note: "Planned from `/fixtures/players`." },
+    { label: "Availability", enabled: false, note: "Planned from `/injuries` and lineup context." }
+  ];
+}
+
+function flattenCoverage(coverage: NonNullable<LeagueHistoricalDossier["coverage"]>): CoverageItem[] {
+  return [
+    { label: "Standings", enabled: Boolean(coverage.standings) },
+    { label: "Players", enabled: Boolean(coverage.players) },
+    { label: "Top scorers", enabled: Boolean(coverage.topScorers) },
+    { label: "Top assists", enabled: Boolean(coverage.topAssists) },
+    { label: "Injuries", enabled: Boolean(coverage.injuries) },
+    { label: "Predictions", enabled: Boolean(coverage.predictions) },
+    { label: "Odds", enabled: Boolean(coverage.odds) },
+    { label: "Events", enabled: Boolean(coverage.fixtures?.events) },
+    { label: "Lineups", enabled: Boolean(coverage.fixtures?.lineups) },
+    { label: "Fixture stats", enabled: Boolean(coverage.fixtures?.statisticsFixtures) },
+    { label: "Player match stats", enabled: Boolean(coverage.fixtures?.statisticsPlayers) }
+  ];
 }
 
 function formatNumber(value: number) {
