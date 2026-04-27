@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { Target } from "lucide-react";
 import { DataFreshnessChip } from "../../components/DataFreshnessChip";
 import { Metric } from "../../components/Metric";
 import { Panel } from "../../components/Panel";
@@ -7,10 +7,11 @@ import type { BetThesis } from "./thesis";
 
 export function BetThesisPanel({ thesis }: { thesis: BetThesis }) {
   return (
-    <Panel title="Bet Thesis" icon={<FileText size={18} />} wide>
-      <div className="thesis-summary">
+    <Panel title="Decision Card" icon={<Target size={18} />} wide>
+      <div className="decision-card">
         <div>
           <span className={`verdict-badge ${thesis.status}`}>{formatStatus(thesis.status)}</span>
+          <p>Selected candidate</p>
           <h2>{thesis.selection}</h2>
           <p>{thesis.verdict}</p>
         </div>
@@ -25,12 +26,23 @@ export function BetThesisPanel({ thesis }: { thesis: BetThesis }) {
         <Metric label="Estimated edge" value={thesis.edge > 0 ? `+${formatPercent(thesis.edge)}` : formatPercent(thesis.edge)} />
         <Metric label="Confidence" value={thesis.confidence} />
       </div>
+
+      <div className="decision-card-reasons">
+        <div>
+          <strong>Why it may be value</strong>
+          <span>{thesis.reasons[0] ?? "No supporting reason is available yet."}</span>
+        </div>
+        <div className="risk-callout">
+          <strong>Main risk</strong>
+          <span>{thesis.risks[0] ?? "No risk flag is available yet."}</span>
+        </div>
+      </div>
     </Panel>
   );
 }
 
 function formatStatus(status: BetThesis["status"]) {
-  if (status === "playable") return "Playable";
+  if (status === "candidate") return "Candidate";
   if (status === "watch") return "Watch";
-  return "No edge";
+  return "No clear edge";
 }

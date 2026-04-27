@@ -12,7 +12,7 @@ export function ReasonsPanel({ thesis }: { thesis: BetThesis }) {
 
 export function RiskFlagsPanel({ thesis }: { thesis: BetThesis }) {
   return (
-    <Panel title="Key Risks" icon={<AlertTriangle size={18} />}>
+    <Panel title="What Could Kill This Edge?" icon={<AlertTriangle size={18} />}>
       <ReasonList items={thesis.risks} />
     </Panel>
   );
@@ -20,7 +20,7 @@ export function RiskFlagsPanel({ thesis }: { thesis: BetThesis }) {
 
 export function CounterargumentPanel({ thesis }: { thesis: BetThesis }) {
   return (
-    <Panel title="Counterargument" icon={<Scale size={18} />}>
+    <Panel title="Best Argument Against This Bet" icon={<Scale size={18} />}>
       <ReasonList items={thesis.counterArguments} />
     </Panel>
   );

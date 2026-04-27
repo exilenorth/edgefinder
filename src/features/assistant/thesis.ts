@@ -3,7 +3,7 @@ import type { FixtureAnalysis, ModelConfidence } from "../../model/probability";
 import type { CacheEvent } from "../../providers/cachedProvider";
 import type { Fixture, MarketSelection } from "../../types";
 
-export type BetVerdictStatus = "playable" | "watch" | "no_edge";
+export type BetVerdictStatus = "candidate" | "watch" | "no_edge";
 
 const PLAYABLE_EDGE_THRESHOLD = 0.06;
 const SMALL_EDGE_THRESHOLD = 0.04;
@@ -55,7 +55,7 @@ export function buildBetThesis(fixture: Fixture, analysis: FixtureAnalysis, cach
 
 function getVerdictStatus(market: MarketSelection, confidence: ModelConfidence): BetVerdictStatus {
   if (market.edge <= 0 || !market.marketOdds) return "no_edge";
-  if (market.edge >= PLAYABLE_EDGE_THRESHOLD && confidence !== "Low") return "playable";
+  if (market.edge >= PLAYABLE_EDGE_THRESHOLD && confidence !== "Low") return "candidate";
   return "watch";
 }
 
@@ -64,7 +64,7 @@ function getVerdictCopy(status: BetVerdictStatus, market: MarketSelection, dataQ
     return `${market.label} is the strongest modelled angle, but it needs a live bookmaker price before it can be treated as a real edge.`;
   }
 
-  if (status === "playable") {
+  if (status === "candidate") {
     const freshnessNote = dataQuality === "live" ? "" : " Recheck freshness before trusting the price.";
     return `${market.label} is the strongest current angle, but only while the available price stays close to or above ${market.fairOdds.toFixed(2)}.${freshnessNote}`;
   }
