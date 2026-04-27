@@ -7,6 +7,9 @@ import { formatPercent, type FixtureAnalysis } from "../../model/probability";
 import type { CacheEvent } from "../../providers/cachedProvider";
 import type { Fixture, MarketSelection, TeamSnapshot } from "../../types";
 import { getTeamLogoUrl } from "../../utils/teamAssets";
+import { BetThesisPanel } from "./BetThesisPanel";
+import { CounterargumentPanel, ReasonsPanel, RiskFlagsPanel } from "./ReasoningPanels";
+import { buildBetThesis } from "./thesis";
 
 interface BettingAssistantWorkspaceProps {
   selected: Fixture;
@@ -29,6 +32,8 @@ export function BettingAssistantWorkspace({
   onToggleLeague,
   onToggleTeam
 }: BettingAssistantWorkspaceProps) {
+  const thesis = buildBetThesis(selected, analysis, cacheEvent);
+
   return (
     <section className="workspace">
       <header className="match-header">
@@ -53,9 +58,9 @@ export function BettingAssistantWorkspace({
           </div>
         </div>
         <div className="edge-summary">
-          <span>Best edge</span>
-          <strong>{analysis.bestMarket.label}</strong>
-          <small>{analysis.bestMarket.note}</small>
+          <span>Assistant verdict</span>
+          <strong>{thesis.status === "playable" ? "Playable" : thesis.status === "watch" ? "Watch" : "No edge"}</strong>
+          <small>{thesis.verdict}</small>
         </div>
       </header>
 
@@ -80,6 +85,13 @@ export function BettingAssistantWorkspace({
         />
       </section>
 
+      <section className="decision-grid" aria-label="Assistant decision summary">
+        <BetThesisPanel thesis={thesis} />
+        <ReasonsPanel thesis={thesis} />
+        <RiskFlagsPanel thesis={thesis} />
+        <CounterargumentPanel thesis={thesis} />
+      </section>
+
       <section className="score-strip" aria-label="Result probabilities">
         {analysis.resultMarkets.map((market) => (
           <ProbabilityTile selection={market} key={market.label} />
@@ -91,10 +103,10 @@ export function BettingAssistantWorkspace({
           <TeamForm fixture={selected} />
         </Panel>
 
-        <Panel title="Expected Goals" icon={<Target size={18} />}>
+        <Panel title="Goal Projection" icon={<Target size={18} />}>
           <div className="xg-grid">
-            <Metric label={`${selected.home.name} adjusted xG`} value={analysis.homeExpectedGoals.toFixed(2)} />
-            <Metric label={`${selected.away.name} adjusted xG`} value={analysis.awayExpectedGoals.toFixed(2)} />
+            <Metric label={`${selected.home.name} projected goals`} value={analysis.homeExpectedGoals.toFixed(2)} />
+            <Metric label={`${selected.away.name} projected goals`} value={analysis.awayExpectedGoals.toFixed(2)} />
             <Metric label="Both teams score" value={formatPercent(analysis.bttsProbability)} />
             <Metric label="Over 2.5 goals" value={formatPercent(analysis.over25Probability)} />
           </div>

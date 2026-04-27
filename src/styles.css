@@ -466,6 +466,12 @@ button {
   gap: 12px;
 }
 
+.decision-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .follow-toggle {
   min-height: 82px;
   border: 1px solid #d7dde3;
@@ -1263,6 +1269,95 @@ dd {
   font-size: 1.35rem;
 }
 
+.thesis-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.thesis-summary h2,
+.thesis-summary p {
+  margin: 0;
+}
+
+.thesis-summary h2 {
+  margin-top: 8px;
+  font-size: 1.45rem;
+}
+
+.thesis-summary p {
+  margin-top: 8px;
+  color: #526272;
+  line-height: 1.5;
+  max-width: 780px;
+}
+
+.thesis-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.verdict-badge,
+.data-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d7dde3;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.verdict-badge.playable {
+  border-color: #40c8a4;
+  background: #f3fffb;
+  color: #24745f;
+}
+
+.verdict-badge.watch {
+  border-color: #f0d28a;
+  background: #fffaf0;
+  color: #8a650f;
+}
+
+.verdict-badge.no_edge {
+  border-color: #d7dde3;
+  background: #f5f7f9;
+  color: #526272;
+}
+
+.data-chip.cached,
+.data-chip.live {
+  border-color: #b9eadc;
+  background: #f3fffb;
+  color: #24745f;
+}
+
+.data-chip.partial,
+.data-chip.estimated {
+  border-color: #d7dde3;
+  background: #f5f7f9;
+  color: #526272;
+}
+
+.data-chip.unavailable {
+  border-color: #f1c8c8;
+  background: #fff5f5;
+  color: #a33f3f;
+}
+
+.reason-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 18px;
+  color: #526272;
+  line-height: 1.45;
+}
+
 .h2h-list,
 .scoreline-grid,
 .scorer-table {
@@ -1344,6 +1439,8 @@ dd {
   .stats-toolbar,
   .detail-metrics,
   .score-strip,
+  .decision-grid,
+  .thesis-metrics,
   .dashboard-grid,
   .detail-grid,
   .team-grid {
