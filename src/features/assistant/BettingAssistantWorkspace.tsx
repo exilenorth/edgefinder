@@ -8,27 +8,32 @@ import type { CacheEvent } from "../../providers/cachedProvider";
 import type { Fixture, MarketSelection, TeamSnapshot } from "../../types";
 import { getTeamLogoUrl } from "../../utils/teamAssets";
 import { BetThesisPanel } from "./BetThesisPanel";
+import { OpportunityDashboard } from "./OpportunityDashboard";
 import { CounterargumentPanel, ReasonsPanel, RiskFlagsPanel } from "./ReasoningPanels";
 import { buildBetThesis } from "./thesis";
 
 interface BettingAssistantWorkspaceProps {
   selected: Fixture;
+  fixtures: Fixture[];
   analysis: FixtureAnalysis;
   cacheEvent?: CacheEvent;
   selectedIsFollowed: boolean;
   followedLeagues: Set<string>;
   followedTeamIds: Set<string>;
+  onSelectFixture: (fixtureId: string) => void;
   onToggleLeague: (league: string) => void;
   onToggleTeam: (team: TeamSnapshot) => void;
 }
 
 export function BettingAssistantWorkspace({
   selected,
+  fixtures,
   analysis,
   cacheEvent,
   selectedIsFollowed,
   followedLeagues,
   followedTeamIds,
+  onSelectFixture,
   onToggleLeague,
   onToggleTeam
 }: BettingAssistantWorkspaceProps) {
@@ -63,6 +68,8 @@ export function BettingAssistantWorkspace({
           <small>{thesis.verdict}</small>
         </div>
       </header>
+
+      <OpportunityDashboard fixtures={fixtures} selectedFixtureId={selected.id} onSelectFixture={onSelectFixture} />
 
       <section className="follow-panel" aria-label="Follow this fixture">
         <FollowToggle

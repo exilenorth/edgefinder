@@ -180,11 +180,13 @@ export function App() {
       ) : selected && analysis ? (
         <BettingAssistantWorkspace
           selected={selected}
+          fixtures={visibleFixtures}
           analysis={analysis}
           cacheEvent={selectedFixtureCacheEvent}
           selectedIsFollowed={selectedIsFollowed}
           followedLeagues={followedLeagues}
           followedTeamIds={followedTeamIds}
+          onSelectFixture={setSelectedId}
           onToggleLeague={toggleLeague}
           onToggleTeam={toggleTeam}
         />

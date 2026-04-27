@@ -460,6 +460,153 @@ button {
   font-size: 1.4rem;
 }
 
+.edge-dashboard {
+  display: grid;
+  gap: 14px;
+}
+
+.edge-dashboard-header,
+.edge-dashboard-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.edge-dashboard-header div,
+.edge-dashboard-footer {
+  color: #667789;
+  line-height: 1.45;
+}
+
+.edge-dashboard-header strong {
+  display: block;
+  color: #17202a;
+  font-size: 1rem;
+}
+
+.edge-dashboard-count {
+  border: 1px solid #d7dde3;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #526272;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.opportunity-table {
+  display: grid;
+  gap: 8px;
+}
+
+.opportunity-head,
+.opportunity-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.3fr) minmax(160px, 1.1fr) 0.55fr 0.7fr 0.7fr minmax(92px, 0.7fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.opportunity-head {
+  color: #667789;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0 12px;
+}
+
+.opportunity-row {
+  width: 100%;
+  border: 1px solid #e2e7ec;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17202a;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.opportunity-row:hover,
+.opportunity-row.is-selected {
+  border-color: #40c8a4;
+  background: #f3fffb;
+}
+
+.opportunity-row span {
+  min-width: 0;
+}
+
+.opportunity-row strong,
+.opportunity-row small {
+  display: block;
+}
+
+.opportunity-row small {
+  color: #667789;
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+.opportunity-edge {
+  color: #147a62;
+  font-weight: 900;
+}
+
+.opportunity-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #eef2f5;
+  color: #526272;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.opportunity-status.playable {
+  background: #dff9ef;
+  color: #147a62;
+}
+
+.opportunity-status.watch {
+  background: #fff4d7;
+  color: #8a6115;
+}
+
+.opportunity-status.stale,
+.opportunity-status.no_edge {
+  background: #eef2f5;
+  color: #667789;
+}
+
+.opportunity-kickoff {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #526272;
+  font-weight: 800;
+}
+
+.opportunity-empty {
+  border: 1px dashed #c3ccd5;
+  border-radius: 8px;
+  background: #f5f7f9;
+  color: #526272;
+  padding: 18px;
+  display: grid;
+  gap: 6px;
+  line-height: 1.45;
+}
+
+.opportunity-empty strong {
+  color: #17202a;
+}
+
 .follow-panel {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1545,12 +1692,21 @@ dd {
   .detail-fixture-row,
   .lineup-row,
   .table-head,
+  .opportunity-head,
+  .opportunity-row,
   .table-row,
   .team-card header {
     grid-template-columns: 1fr;
   }
 
-  .table-head {
+  .table-head,
+  .opportunity-head {
     display: none;
+  }
+
+  .edge-dashboard-header,
+  .edge-dashboard-footer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
