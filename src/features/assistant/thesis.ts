@@ -1,9 +1,14 @@
 import type { DataQuality } from "../../components/DataFreshnessChip";
-import type { FixtureAnalysis } from "../../model/probability";
+import type { FixtureAnalysis, ModelConfidence } from "../../model/probability";
 import type { CacheEvent } from "../../providers/cachedProvider";
 import type { Fixture, MarketSelection } from "../../types";
 
 export type BetVerdictStatus = "playable" | "watch" | "no_edge";
+
+const PLAYABLE_EDGE_THRESHOLD = 0.06;
+const SMALL_EDGE_THRESHOLD = 0.04;
+const STRONG_GOAL_GAP_THRESHOLD = 0.4;
+const OPEN_GAME_GOAL_TOTAL_THRESHOLD = 2.7;
 
 export interface BetThesis {
   fixtureId: string;
@@ -14,7 +19,7 @@ export interface BetThesis {
   modelProbability: number;
   marketProbability?: number;
   edge: number;
-  confidence: string;
+  confidence: ModelConfidence;
   dataQuality: DataQuality;
   status: BetVerdictStatus;
   verdict: string;
@@ -27,6 +32,7 @@ export function buildBetThesis(fixture: Fixture, analysis: FixtureAnalysis, cach
   const market = analysis.bestMarket;
   const status = getVerdictStatus(market, analysis.confidence);
   const marketProbability = market.marketOdds ? 1 / market.marketOdds : undefined;
+  const dataQuality = getDataQuality(cacheEvent);
 
   return {
     fixtureId: fixture.id,
@@ -38,31 +44,36 @@ export function buildBetThesis(fixture: Fixture, analysis: FixtureAnalysis, cach
     marketProbability,
     edge: market.edge,
     confidence: analysis.confidence,
-    dataQuality: getDataQuality(cacheEvent),
+    dataQuality,
     status,
-    verdict: getVerdictCopy(status, market),
+    verdict: getVerdictCopy(status, market, dataQuality),
     reasons: buildReasons(fixture, analysis, market),
     risks: buildRisks(fixture, analysis, market, cacheEvent),
     counterArguments: buildCounterArguments(fixture, analysis, market)
   };
 }
 
-function getVerdictStatus(market: MarketSelection, confidence: string): BetVerdictStatus {
-  if (market.edge <= 0) return "no_edge";
-  if (market.edge >= 0.06 && confidence !== "Low") return "playable";
+function getVerdictStatus(market: MarketSelection, confidence: ModelConfidence): BetVerdictStatus {
+  if (market.edge <= 0 || !market.marketOdds) return "no_edge";
+  if (market.edge >= PLAYABLE_EDGE_THRESHOLD && confidence !== "Low") return "playable";
   return "watch";
 }
 
-function getVerdictCopy(status: BetVerdictStatus, market: MarketSelection) {
+function getVerdictCopy(status: BetVerdictStatus, market: MarketSelection, dataQuality: DataQuality) {
+  if (!market.marketOdds) {
+    return `${market.label} is the strongest modelled angle, but it needs a live bookmaker price before it can be treated as a real edge.`;
+  }
+
   if (status === "playable") {
-    return `${market.label} is the strongest current angle, but only if the available price is still close to or above ${market.fairOdds.toFixed(2)}.`;
+    const freshnessNote = dataQuality === "live" ? "" : " Recheck freshness before trusting the price.";
+    return `${market.label} is the strongest current angle, but only while the available price stays close to or above ${market.fairOdds.toFixed(2)}.${freshnessNote}`;
   }
 
   if (status === "watch") {
     return `${market.label} is worth investigating, but the confidence or price cushion is not strong enough for a clean green light yet.`;
   }
 
-  return "No clear positive edge is showing from the current estimated markets.";
+  return "No clear positive edge is showing against the attached sample market prices.";
 }
 
 function buildReasons(fixture: Fixture, analysis: FixtureAnalysis, market: MarketSelection) {
@@ -70,31 +81,41 @@ function buildReasons(fixture: Fixture, analysis: FixtureAnalysis, market: Marke
   const strongerTeam = expectedGoalGap >= 0 ? fixture.home : fixture.away;
   const totalProjectedGoals = analysis.homeExpectedGoals + analysis.awayExpectedGoals;
   const reasons = [
-    market.edge > 0
-      ? `Model probability is ${(market.edge * 100).toFixed(1)} percentage points above the implied market probability.`
-      : "The selected market is the best available angle even though the current sample prices do not show a positive edge.",
+    getEdgeReason(market),
     `${fixture.home.name} ${analysis.homeExpectedGoals.toFixed(2)}-${analysis.awayExpectedGoals.toFixed(2)} ${fixture.away.name} is the current goal projection.`
   ];
 
-  if (Math.abs(expectedGoalGap) >= 0.4) {
+  if (Math.abs(expectedGoalGap) >= STRONG_GOAL_GAP_THRESHOLD) {
     reasons.push(`${strongerTeam.name} profile as the stronger side in the current attack/defence blend.`);
   }
 
-  if (totalProjectedGoals >= 2.7) {
+  if (totalProjectedGoals >= OPEN_GAME_GOAL_TOTAL_THRESHOLD) {
     reasons.push("The goal model leans toward an open game, which supports goal and scorer-related markets.");
   }
 
   if (market.context) {
-    reasons.push(`${market.label} carries the strongest player-level scoring edge in the available starter assumptions.`);
+    reasons.push(`${market.label} carries the strongest player-level scoring angle in the available starter assumptions.`);
   }
 
   return reasons.slice(0, 4);
 }
 
+function getEdgeReason(market: MarketSelection) {
+  if (market.edge > 0 && market.marketOdds) {
+    return `Model probability is ${(market.edge * 100).toFixed(1)} percentage points above the attached market's implied probability.`;
+  }
+
+  if (market.edge > 0) {
+    return "The model ranks this as the best available angle, but no live bookmaker price is attached yet.";
+  }
+
+  return "The selected market is the best available angle, but the attached sample prices do not show a positive edge.";
+}
+
 function buildRisks(fixture: Fixture, analysis: FixtureAnalysis, market: MarketSelection, cacheEvent?: CacheEvent) {
   const risks = [
     "Lineups are not confirmed in this prototype view, so starter assumptions can move the fair price.",
-    "Current-season provider coverage is limited on the configured API-Football plan, so some inputs are estimated or cached."
+    "Some inputs are projected from limited provider coverage rather than full shot-location or confirmed team-news data."
   ];
 
   if (analysis.confidence === "Low") {
@@ -122,7 +143,7 @@ function buildCounterArguments(fixture: Fixture, analysis: FixtureAnalysis, mark
     "This is a projection model, not shot-location xG, so chance quality is approximated rather than measured directly."
   ];
 
-  if (market.edge < 0.04) {
+  if (market.edge < SMALL_EDGE_THRESHOLD) {
     counterArguments.push("The edge cushion is small enough that normal bookmaker movement could erase it.");
   }
 

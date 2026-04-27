@@ -16,6 +16,7 @@ import { buildLeagueSummaries, buildTeamSummaries } from "../utils/researchSumma
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const FOLLOW_STORAGE_KEY = "edgefinder:follows:v1";
+const FIXTURE_CACHE_KEY_PREFIX = "edgefinder:v2:fixture:";
 
 export function App() {
   const [fixtures, setFixtures] = React.useState<Fixture[]>([]);
@@ -117,6 +118,7 @@ export function App() {
   const selected = selectedFixture ?? fixtures.find((fixture) => fixture.id === selectedId);
   const analysis = selected ? analyseFixture(selected) : undefined;
   const selectedIsFollowed = selected ? isFixtureFollowed(selected, followedTeamIds, followedLeagues) : false;
+  const selectedFixtureCacheEvent = selected && cacheEvent?.key === getFixtureCacheKey(selected.id) ? cacheEvent : undefined;
 
   function toggleTeam(team: TeamSnapshot) {
     setFollows((current) => toggleFollow(current, "teams", team.id));
@@ -179,7 +181,7 @@ export function App() {
         <BettingAssistantWorkspace
           selected={selected}
           analysis={analysis}
-          cacheEvent={cacheEvent}
+          cacheEvent={selectedFixtureCacheEvent}
           selectedIsFollowed={selectedIsFollowed}
           followedLeagues={followedLeagues}
           followedTeamIds={followedTeamIds}
@@ -191,6 +193,10 @@ export function App() {
       )}
     </main>
   );
+}
+
+function getFixtureCacheKey(fixtureId: string) {
+  return `${FIXTURE_CACHE_KEY_PREFIX}${fixtureId}`;
 }
 
 
