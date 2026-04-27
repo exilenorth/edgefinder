@@ -1,6 +1,6 @@
 import React from "react";
 import { Activity, CalendarDays, Database, Goal, Search, ShieldCheck, Star, Target, TrendingUp, Trophy, UserRound } from "lucide-react";
-import type { LeagueSummary, TeamSummary } from "../../app/types";
+import type { LeagueSummary, ResearchEntity, TeamSummary } from "../../app/types";
 import { FollowToggle } from "../../components/FollowToggle";
 import { LogoMark } from "../../components/LogoMark";
 import { Metric } from "../../components/Metric";
@@ -30,7 +30,9 @@ export function ResearchHubWorkspace({
   followedLeagues,
   followedTeamIds,
   onToggleLeague,
-  onToggleTeam
+  onToggleTeam,
+  selectedResearchEntity,
+  onOpenFixtureInAssistant
 }: {
   leagueSummaries: LeagueSummary[];
   teamSummaries: TeamSummary[];
@@ -38,6 +40,8 @@ export function ResearchHubWorkspace({
   followedTeamIds: Set<string>;
   onToggleLeague: (league: string) => void;
   onToggleTeam: (team: TeamSnapshot) => void;
+  selectedResearchEntity?: ResearchEntity;
+  onOpenFixtureInAssistant: (fixtureId: string) => void;
 }) {
   const [statsTab, setStatsTab] = React.useState<StatsTab>("leagues");
   const [statsMode, setStatsMode] = React.useState<StatsMode>("current");
@@ -121,6 +125,36 @@ export function ResearchHubWorkspace({
       setSelectedTeamKey(getTeamSummaryKey(browsedTeamSummaries[0]));
     }
   }, [browsedTeamSummaries, selectedTeamKey]);
+
+  React.useEffect(() => {
+    if (!selectedResearchEntity) return;
+
+    if (selectedResearchEntity.type === "league") {
+      setStatsMode("current");
+      setStatsTab("leagues");
+      setSelectedLeagueName(selectedResearchEntity.name);
+      setQuery("");
+      setFollowedOnly(false);
+      return;
+    }
+
+    if (selectedResearchEntity.type === "team") {
+      setStatsMode("current");
+      setStatsTab("teams");
+      setQuery("");
+      setFollowedOnly(false);
+
+      const matchingTeam =
+        currentTeamSummaries.find((summary) => summary.team.id === selectedResearchEntity.id) ??
+        currentTeamSummaries.find(
+          (summary) => normalizeTeamName(summary.team.name) === normalizeTeamName(selectedResearchEntity.name)
+        );
+
+      if (matchingTeam) {
+        setSelectedTeamKey(getTeamSummaryKey(matchingTeam));
+      }
+    }
+  }, [currentTeamSummaries, selectedResearchEntity]);
 
   React.useEffect(() => {
     if (statsMode !== "historical") return;
@@ -317,6 +351,7 @@ export function ResearchHubWorkspace({
                 setStatsTab("teams");
                 setSelectedTeamKey(getTeamSummaryKey(team));
               }}
+              onOpenFixtureInAssistant={onOpenFixtureInAssistant}
             />
           ) : selectedTeam ? (
             <TeamDetail
@@ -324,6 +359,7 @@ export function ResearchHubWorkspace({
               followed={followedTeamIds.has(selectedTeam.team.id)}
               selectedSeason={selectedSeason}
               onToggleFollow={() => onToggleTeam(selectedTeam.team)}
+              onOpenFixtureInAssistant={onOpenFixtureInAssistant}
             />
           ) : (
             <div className="stats-empty">No matching stats loaded.</div>
@@ -513,13 +549,15 @@ function LeagueDetail({
   teamSummaries,
   followed,
   onToggleFollow,
-  onSelectTeam
+  onSelectTeam,
+  onOpenFixtureInAssistant
 }: {
   league: LeagueSummary;
   teamSummaries: TeamSummary[];
   followed: boolean;
   onToggleFollow: () => void;
   onSelectTeam: (team: TeamSummary) => void;
+  onOpenFixtureInAssistant: (fixtureId: string) => void;
 }) {
   const attackRankings = teamSummaries.slice().sort((first, second) => second.team.attackRating - first.team.attackRating);
   const defenceRankings = teamSummaries.slice().sort((first, second) => first.team.defenceRating - second.team.defenceRating);
@@ -579,13 +617,18 @@ function LeagueDetail({
           <div className="detail-fixture-list">
             {league.fixtures.length ? (
               league.fixtures.slice(0, 10).map((fixture) => (
-                <div className="detail-fixture-row" key={fixture.id}>
+                <button
+                  className="detail-fixture-row linked-fixture-row"
+                  type="button"
+                  key={fixture.id}
+                  onClick={() => onOpenFixtureInAssistant(fixture.id)}
+                >
                   <span>{formatDateTime(fixture.kickoff)}</span>
                   <strong>
                     {fixture.home.name} v {fixture.away.name}
                   </strong>
                   <small>{fixture.venue}</small>
-                </div>
+                </button>
               ))
             ) : (
               <div className="stats-empty">No current fixtures are loaded for this league yet.</div>
@@ -631,12 +674,14 @@ function TeamDetail({
   summary,
   followed,
   selectedSeason,
-  onToggleFollow
+  onToggleFollow,
+  onOpenFixtureInAssistant
 }: {
   summary: TeamSummary;
   followed: boolean;
   selectedSeason: number;
   onToggleFollow: () => void;
+  onOpenFixtureInAssistant?: (fixtureId: string) => void;
 }) {
   const { team, league, fixtureCount, nextFixture } = summary;
   const [activeTab, setActiveTab] = React.useState<TeamInsightTab>("overview");
@@ -1060,13 +1105,18 @@ function TeamDetail({
           <Panel title="Loaded Fixtures" icon={<CalendarDays size={18} />} wide>
             <div className="detail-fixture-list">
               {summary.fixtures.map((fixture) => (
-                <div className="detail-fixture-row" key={fixture.id}>
+                <button
+                  className="detail-fixture-row linked-fixture-row"
+                  type="button"
+                  key={fixture.id}
+                  onClick={() => onOpenFixtureInAssistant?.(fixture.id)}
+                >
                   <span>{formatDateTime(fixture.kickoff)}</span>
                   <strong>
                     {fixture.home.name} v {fixture.away.name}
                   </strong>
                   <small>{fixture.venue}</small>
-                </div>
+                </button>
               ))}
             </div>
           </Panel>

@@ -1,6 +1,6 @@
 import React from "react";
 import { Sidebar } from "./Sidebar";
-import type { AppView, DateFilter, FixtureFilter, FixtureGroup, LeagueSummary, TeamSummary } from "./types";
+import type { AppView, DateFilter, FixtureFilter, FixtureGroup, LeagueSummary, ResearchEntity, TeamSummary } from "./types";
 import { AssistantSidebarContent } from "../features/assistant/AssistantSidebarContent";
 import { BettingAssistantWorkspace } from "../features/assistant/BettingAssistantWorkspace";
 import { ResearchHubWorkspace } from "../features/research/ResearchHubWorkspace";
@@ -28,6 +28,7 @@ export function App() {
   const [selectedLeague, setSelectedLeague] = React.useState<string>("all");
   const [expandedGroupKeys, setExpandedGroupKeys] = React.useState<Set<string>>(new Set());
   const [appView, setAppView] = React.useState<AppView>("assistant");
+  const [selectedResearchEntity, setSelectedResearchEntity] = React.useState<ResearchEntity | undefined>();
   const [follows, setFollows] = React.useState<FollowState>(() => loadFollows(FOLLOW_STORAGE_KEY));
 
   const fixtureProvider = React.useMemo(
@@ -141,6 +142,16 @@ export function App() {
     });
   }
 
+  function openResearch(entity: ResearchEntity) {
+    setSelectedResearchEntity(entity);
+    setAppView("research");
+  }
+
+  function openAssistantFixture(fixtureId: string) {
+    setSelectedId(fixtureId);
+    setAppView("assistant");
+  }
+
   return (
     <main className="app-shell">
       <Sidebar
@@ -176,6 +187,8 @@ export function App() {
           followedTeamIds={followedTeamIds}
           onToggleLeague={toggleLeague}
           onToggleTeam={toggleTeam}
+          selectedResearchEntity={selectedResearchEntity}
+          onOpenFixtureInAssistant={openAssistantFixture}
         />
       ) : selected && analysis ? (
         <BettingAssistantWorkspace
@@ -189,6 +202,8 @@ export function App() {
           onSelectFixture={setSelectedId}
           onToggleLeague={toggleLeague}
           onToggleTeam={toggleTeam}
+          onOpenResearchLeague={(league) => openResearch({ type: "league", name: league })}
+          onOpenResearchTeam={(team) => openResearch({ type: "team", id: team.id, name: team.name })}
         />
       ) : (
         <section className="empty-state">Loading fixtures...</section>
