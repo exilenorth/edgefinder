@@ -1,11 +1,7 @@
 import React from "react";
 import {
   Activity,
-  BarChart3,
   CalendarDays,
-  ChevronDown,
-  ChevronRight,
-  Clock,
   Database,
   Goal,
   Search,
@@ -15,12 +11,18 @@ import {
   TrendingUp,
   Trophy
 } from "lucide-react";
+import { Sidebar } from "./Sidebar";
+import type { AppView, DateFilter, FixtureFilter, FixtureGroup, LeagueSummary, TeamSummary } from "./types";
+import { LogoMark } from "../components/LogoMark";
+import { AssistantSidebarContent } from "../features/assistant/AssistantSidebarContent";
+import { ResearchSidebarContent } from "../features/research/ResearchSidebarContent";
 import { backendProvider } from "../providers/backendProvider";
 import { createCachedSportsDataProvider, type CacheEvent } from "../providers/cachedProvider";
 import { analyseFixture, formatPercent } from "../model/probability";
 import type { Fixture, LeagueHistoricalDossier, MarketSelection, Result, TeamDossier, TeamSnapshot } from "../types";
-import { findClubProfile, getClubCrestUrl, getCurrentEplTeams, getLeagueLogoUrl } from "../data/eplClubProfiles";
+import { findClubProfile, getCurrentEplTeams, getLeagueLogoUrl } from "../data/eplClubProfiles";
 import { apiConfig } from "../config/apiConfig";
+import { getTeamLogoUrl } from "../utils/teamAssets";
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const FOLLOW_STORAGE_KEY = "edgefinder:follows:v1";
@@ -28,9 +30,6 @@ const DEFAULT_STATS_SEASON = apiConfig.apiFootballSeason;
 const STATS_SEASON_OPTIONS = Array.from({ length: 4 }, (_, index) => DEFAULT_STATS_SEASON - index);
 const CONFIGURED_LEAGUE_NAME = "Premier League";
 
-type FixtureFilter = "all" | "following";
-type DateFilter = "all" | "today" | "next24" | "weekend";
-type AppView = "assistant" | "research";
 type StatsMode = "current" | "historical";
 type StatsTab = "leagues" | "teams";
 type TeamInsightTab = "overview" | "squad" | "lineups" | "manager" | "stadium" | "fixtures" | "transfers";
@@ -44,30 +43,6 @@ const EMPTY_FOLLOWS: FollowState = {
   teams: [],
   leagues: []
 };
-
-interface LeagueSummary {
-  name: string;
-  logoUrl?: string;
-  fixtureCount: number;
-  teamCount: number;
-  nextKickoff?: string;
-  fixtures: Fixture[];
-}
-
-interface TeamSummary {
-  team: TeamSnapshot;
-  league: string;
-  fixtureCount: number;
-  nextFixture?: Fixture;
-  fixtures: Fixture[];
-}
-
-interface FixtureGroup {
-  key: string;
-  label: string;
-  isPriority: boolean;
-  fixtures: Fixture[];
-}
 
 export function App() {
   const [fixtures, setFixtures] = React.useState<Fixture[]>([]);
@@ -193,164 +168,30 @@ export function App() {
 
   return (
     <main className="app-shell">
-      <aside className="fixture-rail" aria-label="EdgeFinder navigation">
-        <div className="brand">
-          <Trophy aria-hidden="true" />
-          <div>
-            <strong>EdgeFinder</strong>
-            <span>Football decision desk</span>
-          </div>
-        </div>
-
-        <section className="watchlist-summary" aria-label="Watchlist">
-          <div>
-            <span>Following</span>
-            <strong>{followedCount}</strong>
-          </div>
-          <div>
-            <span>Tracked fixtures</span>
-            <strong>{followedFixtureCount}</strong>
-          </div>
-        </section>
-
-        <nav className="area-tabs" aria-label="App areas">
-          <button
-            className={appView === "assistant" ? "is-active" : ""}
-            type="button"
-            onClick={() => setAppView("assistant")}
-          >
-            <CalendarDays size={15} aria-hidden="true" />
-            Assistant
-          </button>
-          <button className={appView === "research" ? "is-active" : ""} type="button" onClick={() => setAppView("research")}>
-            <BarChart3 size={15} aria-hidden="true" />
-            Research
-          </button>
-        </nav>
-
-        {appView === "assistant" ? (
-          <>
-            <div className="filter-tabs" aria-label="Fixture filter">
-              <button
-                className={fixtureFilter === "all" ? "is-active" : ""}
-                type="button"
-                onClick={() => setFixtureFilter("all")}
-              >
-                All
-              </button>
-              <button
-                className={fixtureFilter === "following" ? "is-active" : ""}
-                type="button"
-                onClick={() => setFixtureFilter("following")}
-              >
-                Following
-              </button>
-            </div>
-
-            <div className="quick-filters" aria-label="Date filter">
-              <button className={dateFilter === "all" ? "is-active" : ""} type="button" onClick={() => setDateFilter("all")}>
-                All dates
-              </button>
-              <button className={dateFilter === "today" ? "is-active" : ""} type="button" onClick={() => setDateFilter("today")}>
-                Today
-              </button>
-              <button className={dateFilter === "next24" ? "is-active" : ""} type="button" onClick={() => setDateFilter("next24")}>
-                <Clock size={14} aria-hidden="true" />
-                24h
-              </button>
-              <button
-                className={dateFilter === "weekend" ? "is-active" : ""}
-                type="button"
-                onClick={() => setDateFilter("weekend")}
-              >
-                Weekend
-              </button>
-            </div>
-
-            <div className="league-filter" aria-label="League filter">
-              <button
-                className={selectedLeague === "all" ? "is-active" : ""}
-                type="button"
-                onClick={() => setSelectedLeague("all")}
-              >
-                All leagues
-              </button>
-              {leagueOptions.map((league) => (
-                <button
-                  className={selectedLeague === league ? "is-active" : ""}
-                  type="button"
-                  onClick={() => setSelectedLeague(league)}
-                  key={league}
-                >
-                  {league}
-                </button>
-              ))}
-            </div>
-
-            <div className="rail-section-title">
-              <CalendarDays size={16} aria-hidden="true" />
-              {fixtureFilter === "following" ? "Followed fixtures" : "Upcoming fixtures"}
-            </div>
-
-            <div className="fixture-groups">
-              {visibleFixtureGroups.length > 0 ? (
-                visibleFixtureGroups.map((group) => (
-                  <section className="fixture-day-group" key={group.key}>
-                    <button className="fixture-day-toggle" type="button" onClick={() => toggleFixtureGroup(group.key)}>
-                      {expandedGroupKeys.has(group.key) ? (
-                        <ChevronDown size={15} aria-hidden="true" />
-                      ) : (
-                        <ChevronRight size={15} aria-hidden="true" />
-                      )}
-                      <span>{group.label}</span>
-                      <small>{group.fixtures.length}</small>
-                    </button>
-                    {expandedGroupKeys.has(group.key) ? (
-                      <div className="fixture-list">
-                        {group.fixtures.map((fixture) => (
-                          <button
-                            className={`fixture-card ${fixture.id === selectedId ? "is-selected" : ""}`}
-                            key={fixture.id}
-                            type="button"
-                            onClick={() => setSelectedId(fixture.id)}
-                          >
-                            <span>{fixture.competition}</span>
-                            <strong className="fixture-teams">
-                              <LogoMark src={getTeamLogoUrl(fixture.home)} label={fixture.home.name} size="small" />
-                              {fixture.home.name} v {fixture.away.name}
-                              <LogoMark src={getTeamLogoUrl(fixture.away)} label={fixture.away.name} size="small" />
-                            </strong>
-                            <small>{formatKickoffTime(fixture.kickoff)}</small>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </section>
-                ))
-              ) : (
-                <div className="rail-empty">
-                  Follow a team or league from any fixture to build this view.
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="rail-section-title">
-              <BarChart3 size={16} aria-hidden="true" />
-              Research browser
-            </div>
-            <div className="stats-rail-card">
-              <span>Leagues loaded</span>
-              <strong>{leagueSummaries.length}</strong>
-            </div>
-            <div className="stats-rail-card">
-              <span>Teams loaded</span>
-              <strong>{teamSummaries.length}</strong>
-            </div>
-          </>
-        )}
-      </aside>
+      <Sidebar
+        appView={appView}
+        setAppView={setAppView}
+        followedCount={followedCount}
+        followedFixtureCount={followedFixtureCount}
+        assistantContent={
+          <AssistantSidebarContent
+            fixtureFilter={fixtureFilter}
+            dateFilter={dateFilter}
+            selectedLeague={selectedLeague}
+            leagueOptions={leagueOptions}
+            visibleFixtureGroups={visibleFixtureGroups}
+            expandedGroupKeys={expandedGroupKeys}
+            selectedId={selectedId}
+            setFixtureFilter={setFixtureFilter}
+            setDateFilter={setDateFilter}
+            setSelectedLeague={setSelectedLeague}
+            setSelectedId={setSelectedId}
+            toggleFixtureGroup={toggleFixtureGroup}
+            formatKickoffTime={formatKickoffTime}
+          />
+        }
+        researchContent={<ResearchSidebarContent leagueSummaries={leagueSummaries} teamSummaries={teamSummaries} />}
+      />
 
       {appView === "research" ? (
         <StatsWorkspace
@@ -1544,20 +1385,6 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function LogoMark({ src, label, size = "medium" }: { src?: string; label: string; size?: "small" | "medium" | "large" }) {
-  return src ? (
-    <img className={`logo-mark ${size}`} src={src} alt="" aria-hidden="true" loading="lazy" />
-  ) : (
-    <span className={`logo-mark fallback ${size}`} aria-hidden="true">
-      {getInitials(label)}
-    </span>
-  );
-}
-
-function getTeamLogoUrl(team: TeamSnapshot) {
-  return team.logoUrl ?? getClubCrestUrl(findClubProfile(team.id, team.name));
-}
-
 function getApiFootballTeamId(team: TeamSnapshot, profile: ReturnType<typeof findClubProfile>) {
   const numericId = Number(team.id);
   return Number.isFinite(numericId) ? numericId : profile?.apiFootballTeamId;
@@ -1566,15 +1393,6 @@ function getApiFootballTeamId(team: TeamSnapshot, profile: ReturnType<typeof fin
 function getStadiumImageUrl(summary: TeamSummary) {
   const profile = findClubProfile(summary.team.id, summary.team.name);
   return profile?.media?.stadiumImageUrl ?? summary.fixtures.find((fixture) => Boolean(fixture.venueImageUrl))?.venueImageUrl;
-}
-
-function getInitials(label: string) {
-  return label
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? "")
-    .join("");
 }
 
 function TeamForm({ fixture }: { fixture: Fixture }) {
