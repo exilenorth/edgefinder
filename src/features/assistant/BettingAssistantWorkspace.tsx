@@ -1,4 +1,4 @@
-import { Activity, Database, Goal, ShieldCheck, Target, TrendingUp } from "lucide-react";
+import { Activity, ArrowLeft, Database, Goal, ShieldCheck, Target, TrendingUp } from "lucide-react";
 import type React from "react";
 import { FollowToggle } from "../../components/FollowToggle";
 import { LogoMark } from "../../components/LogoMark";
@@ -25,6 +25,8 @@ interface BettingAssistantWorkspaceProps {
   onToggleTeam: (team: TeamSnapshot) => void;
   onOpenResearchLeague: (league: string) => void;
   onOpenResearchTeam: (team: TeamSnapshot) => void;
+  canGoBack: boolean;
+  onGoBack: () => void;
 }
 
 export function BettingAssistantWorkspace({
@@ -39,7 +41,9 @@ export function BettingAssistantWorkspace({
   onToggleLeague,
   onToggleTeam,
   onOpenResearchLeague,
-  onOpenResearchTeam
+  onOpenResearchTeam,
+  canGoBack,
+  onGoBack
 }: BettingAssistantWorkspaceProps) {
   const thesis = buildBetThesis(selected, analysis, cacheEvent);
 
@@ -82,6 +86,12 @@ export function BettingAssistantWorkspace({
             {selectedIsFollowed ? <span>In watchlist</span> : null}
           </div>
         </div>
+        {canGoBack ? (
+          <button className="back-button" type="button" onClick={onGoBack}>
+            <ArrowLeft size={16} aria-hidden="true" />
+            Back
+          </button>
+        ) : null}
       </header>
 
       <section className="decision-grid" aria-label="Assistant decision summary">

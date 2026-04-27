@@ -330,6 +330,33 @@ button {
   background: #40c8a4;
 }
 
+.back-button {
+  align-items: center;
+  align-self: flex-start;
+  background: #ffffff;
+  border: 1px solid #d9e2e8;
+  border-radius: 999px;
+  color: #33424f;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.84rem;
+  font-weight: 800;
+  gap: 6px;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.back-button:hover {
+  background: #eefaf6;
+  border-color: #40c8a4;
+  color: #0f5d4c;
+}
+
+.back-button:focus-visible {
+  outline: 3px solid rgba(20, 122, 98, 0.22);
+  outline-offset: 3px;
+}
+
 .rail-empty {
   border: 1px dashed #526272;
   border-radius: 8px;

@@ -18,6 +18,12 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
 const FOLLOW_STORAGE_KEY = "edgefinder:follows:v1";
 const FIXTURE_CACHE_KEY_PREFIX = "edgefinder:v2:fixture:";
 
+interface AppLocation {
+  view: AppView;
+  fixtureId: string;
+  researchEntity?: ResearchEntity;
+}
+
 export function App() {
   const [fixtures, setFixtures] = React.useState<Fixture[]>([]);
   const [selectedFixture, setSelectedFixture] = React.useState<Fixture | undefined>();
@@ -29,6 +35,7 @@ export function App() {
   const [expandedGroupKeys, setExpandedGroupKeys] = React.useState<Set<string>>(new Set());
   const [appView, setAppView] = React.useState<AppView>("assistant");
   const [selectedResearchEntity, setSelectedResearchEntity] = React.useState<ResearchEntity | undefined>();
+  const [navigationHistory, setNavigationHistory] = React.useState<AppLocation[]>([]);
   const [follows, setFollows] = React.useState<FollowState>(() => loadFollows(FOLLOW_STORAGE_KEY));
 
   const fixtureProvider = React.useMemo(
@@ -120,6 +127,14 @@ export function App() {
   const analysis = selected ? analyseFixture(selected) : undefined;
   const selectedIsFollowed = selected ? isFixtureFollowed(selected, followedTeamIds, followedLeagues) : false;
   const selectedFixtureCacheEvent = selected && cacheEvent?.key === getFixtureCacheKey(selected.id) ? cacheEvent : undefined;
+  const currentLocation = React.useMemo<AppLocation>(
+    () => ({
+      view: appView,
+      fixtureId: selectedId,
+      researchEntity: selectedResearchEntity
+    }),
+    [appView, selectedId, selectedResearchEntity]
+  );
 
   function toggleTeam(team: TeamSnapshot) {
     setFollows((current) => toggleFollow(current, "teams", team.id));
@@ -142,12 +157,43 @@ export function App() {
     });
   }
 
+  function pushCurrentLocation() {
+    setNavigationHistory((current) => {
+      const previous = current[current.length - 1];
+      if (previous && isSameLocation(previous, currentLocation)) return current;
+      return [...current, currentLocation].slice(-12);
+    });
+  }
+
+  function applyLocation(location: AppLocation) {
+    setAppView(location.view);
+    setSelectedId(location.fixtureId);
+    setSelectedResearchEntity(location.researchEntity);
+  }
+
+  function goBack() {
+    const previousLocation = navigationHistory[navigationHistory.length - 1];
+    if (!previousLocation) return;
+
+    setNavigationHistory((current) => current.slice(0, -1));
+    applyLocation(previousLocation);
+  }
+
+  function switchView(nextView: AppView) {
+    if (nextView === appView) return;
+
+    pushCurrentLocation();
+    setAppView(nextView);
+  }
+
   function openResearch(entity: ResearchEntity) {
+    pushCurrentLocation();
     setSelectedResearchEntity(entity);
     setAppView("research");
   }
 
   function openAssistantFixture(fixtureId: string) {
+    pushCurrentLocation();
     setSelectedId(fixtureId);
     setAppView("assistant");
   }
@@ -156,7 +202,7 @@ export function App() {
     <main className="app-shell">
       <Sidebar
         appView={appView}
-        setAppView={setAppView}
+        setAppView={switchView}
         followedCount={followedCount}
         followedFixtureCount={followedFixtureCount}
         assistantContent={
@@ -189,6 +235,8 @@ export function App() {
           onToggleTeam={toggleTeam}
           selectedResearchEntity={selectedResearchEntity}
           onOpenFixtureInAssistant={openAssistantFixture}
+          canGoBack={navigationHistory.length > 0}
+          onGoBack={goBack}
         />
       ) : selected && analysis ? (
         <BettingAssistantWorkspace
@@ -204,6 +252,8 @@ export function App() {
           onToggleTeam={toggleTeam}
           onOpenResearchLeague={(league) => openResearch({ type: "league", name: league })}
           onOpenResearchTeam={(team) => openResearch({ type: "team", id: team.id, name: team.name })}
+          canGoBack={navigationHistory.length > 0}
+          onGoBack={goBack}
         />
       ) : (
         <section className="empty-state">Loading fixtures...</section>
@@ -214,6 +264,19 @@ export function App() {
 
 function getFixtureCacheKey(fixtureId: string) {
   return `${FIXTURE_CACHE_KEY_PREFIX}${fixtureId}`;
+}
+
+function isSameLocation(first: AppLocation, second: AppLocation) {
+  return (
+    first.view === second.view &&
+    first.fixtureId === second.fixtureId &&
+    getResearchEntityKey(first.researchEntity) === getResearchEntityKey(second.researchEntity)
+  );
+}
+
+function getResearchEntityKey(entity: ResearchEntity | undefined) {
+  if (!entity) return "";
+  return entity.type === "league" ? `${entity.type}:${entity.name}` : `${entity.type}:${entity.id}:${entity.name}`;
 }
 
 

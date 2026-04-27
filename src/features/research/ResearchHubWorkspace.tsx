@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, CalendarDays, Database, Goal, Search, ShieldCheck, Star, Target, TrendingUp, Trophy, UserRound } from "lucide-react";
+import { Activity, ArrowLeft, CalendarDays, Database, Goal, Search, ShieldCheck, Star, Target, TrendingUp, Trophy, UserRound } from "lucide-react";
 import type { LeagueSummary, ResearchEntity, TeamSummary } from "../../app/types";
 import { FollowToggle } from "../../components/FollowToggle";
 import { LogoMark } from "../../components/LogoMark";
@@ -32,7 +32,9 @@ export function ResearchHubWorkspace({
   onToggleLeague,
   onToggleTeam,
   selectedResearchEntity,
-  onOpenFixtureInAssistant
+  onOpenFixtureInAssistant,
+  canGoBack,
+  onGoBack
 }: {
   leagueSummaries: LeagueSummary[];
   teamSummaries: TeamSummary[];
@@ -42,6 +44,8 @@ export function ResearchHubWorkspace({
   onToggleTeam: (team: TeamSnapshot) => void;
   selectedResearchEntity?: ResearchEntity;
   onOpenFixtureInAssistant: (fixtureId: string) => void;
+  canGoBack: boolean;
+  onGoBack: () => void;
 }) {
   const [statsTab, setStatsTab] = React.useState<StatsTab>("leagues");
   const [statsMode, setStatsMode] = React.useState<StatsMode>("current");
@@ -198,6 +202,12 @@ export function ResearchHubWorkspace({
             <span>{browsedTeamSummaries.filter((item) => followedTeamIds.has(item.team.id)).length} followed teams</span>
           </div>
         </div>
+        {canGoBack ? (
+          <button className="back-button" type="button" onClick={onGoBack}>
+            <ArrowLeft size={16} aria-hidden="true" />
+            Back
+          </button>
+        ) : null}
       </header>
 
       <section className="stats-toolbar" aria-label="Stats filters">
