@@ -1,0 +1,201 @@
+import type { DatabaseConnection } from "./types";
+
+interface Migration {
+  id: string;
+  statements: string[];
+}
+
+const MIGRATIONS: Migration[] = [
+  {
+    id: "001_normalized_core",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS schema_migrations (
+        id TEXT PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS provider_requests (
+        id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        endpoint TEXT NOT NULL,
+        request_key TEXT NOT NULL,
+        status TEXT NOT NULL,
+        source TEXT,
+        error TEXT,
+        requested_at INTEGER NOT NULL,
+        response_ref TEXT
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_provider_requests_provider_endpoint
+        ON provider_requests (provider, endpoint, requested_at)`,
+      `CREATE TABLE IF NOT EXISTS leagues (
+        id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        provider_league_id TEXT,
+        name TEXT NOT NULL,
+        logo_url TEXT,
+        country TEXT,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_leagues_provider_id
+        ON leagues (provider, provider_league_id)`,
+      `CREATE TABLE IF NOT EXISTS league_seasons (
+        id TEXT PRIMARY KEY,
+        league_id TEXT NOT NULL,
+        season INTEGER NOT NULL,
+        is_current INTEGER NOT NULL DEFAULT 0,
+        coverage_json TEXT,
+        data_status TEXT NOT NULL DEFAULT 'unknown',
+        archived_at INTEGER,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (league_id) REFERENCES leagues(id)
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_league_seasons_league_season
+        ON league_seasons (league_id, season)`,
+      `CREATE TABLE IF NOT EXISTS venues (
+        id TEXT PRIMARY KEY,
+        provider TEXT,
+        provider_venue_id TEXT,
+        name TEXT NOT NULL,
+        city TEXT,
+        capacity INTEGER,
+        surface TEXT,
+        image_url TEXT,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_venues_provider_id
+        ON venues (provider, provider_venue_id)`,
+      `CREATE TABLE IF NOT EXISTS teams (
+        id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        provider_team_id TEXT,
+        name TEXT NOT NULL,
+        logo_url TEXT,
+        country TEXT,
+        founded INTEGER,
+        venue_id TEXT,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (venue_id) REFERENCES venues(id)
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_teams_provider_id
+        ON teams (provider, provider_team_id)`,
+      `CREATE TABLE IF NOT EXISTS fixtures (
+        id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        provider_fixture_id TEXT,
+        league_id TEXT,
+        season INTEGER,
+        kickoff TEXT NOT NULL,
+        status TEXT,
+        venue_id TEXT,
+        home_team_id TEXT NOT NULL,
+        away_team_id TEXT NOT NULL,
+        home_goals INTEGER,
+        away_goals INTEGER,
+        source_json TEXT,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (league_id) REFERENCES leagues(id),
+        FOREIGN KEY (venue_id) REFERENCES venues(id),
+        FOREIGN KEY (home_team_id) REFERENCES teams(id),
+        FOREIGN KEY (away_team_id) REFERENCES teams(id)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_fixtures_kickoff ON fixtures (kickoff)`,
+      `CREATE INDEX IF NOT EXISTS idx_fixtures_league_season ON fixtures (league_id, season)`,
+      `CREATE TABLE IF NOT EXISTS fixture_teams (
+        fixture_id TEXT NOT NULL,
+        team_id TEXT NOT NULL,
+        side TEXT NOT NULL,
+        PRIMARY KEY (fixture_id, team_id, side),
+        FOREIGN KEY (fixture_id) REFERENCES fixtures(id),
+        FOREIGN KEY (team_id) REFERENCES teams(id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS odds_events (
+        id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        provider_event_id TEXT NOT NULL,
+        sport_key TEXT NOT NULL,
+        sport_title TEXT,
+        fixture_id TEXT,
+        home_team TEXT NOT NULL,
+        away_team TEXT NOT NULL,
+        commence_time TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (fixture_id) REFERENCES fixtures(id)
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_odds_events_provider_event
+        ON odds_events (provider, provider_event_id)`,
+      `CREATE TABLE IF NOT EXISTS odds_snapshots (
+        id TEXT PRIMARY KEY,
+        odds_event_id TEXT NOT NULL,
+        fixture_id TEXT,
+        bookmaker_key TEXT NOT NULL,
+        bookmaker_title TEXT,
+        market_key TEXT NOT NULL,
+        outcome_name TEXT NOT NULL,
+        outcome_point REAL,
+        price REAL NOT NULL,
+        last_update TEXT,
+        captured_at INTEGER NOT NULL,
+        FOREIGN KEY (odds_event_id) REFERENCES odds_events(id),
+        FOREIGN KEY (fixture_id) REFERENCES fixtures(id)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_odds_snapshots_fixture_market
+        ON odds_snapshots (fixture_id, market_key, captured_at)`,
+      `CREATE TABLE IF NOT EXISTS opportunities (
+        id TEXT PRIMARY KEY,
+        fixture_id TEXT NOT NULL,
+        market_key TEXT NOT NULL,
+        selection TEXT NOT NULL,
+        first_seen_at INTEGER NOT NULL,
+        latest_snapshot_at INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        FOREIGN KEY (fixture_id) REFERENCES fixtures(id)
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_opportunities_fixture_market_selection
+        ON opportunities (fixture_id, market_key, selection)`,
+      `CREATE TABLE IF NOT EXISTS opportunity_snapshots (
+        id TEXT PRIMARY KEY,
+        opportunity_id TEXT NOT NULL,
+        fixture_id TEXT NOT NULL,
+        market_key TEXT NOT NULL,
+        selection TEXT NOT NULL,
+        model_probability REAL NOT NULL,
+        market_probability REAL,
+        fair_price REAL NOT NULL,
+        market_price REAL,
+        edge REAL NOT NULL,
+        confidence TEXT NOT NULL,
+        status TEXT NOT NULL,
+        model_version TEXT NOT NULL,
+        inputs_json TEXT,
+        captured_at INTEGER NOT NULL,
+        FOREIGN KEY (opportunity_id) REFERENCES opportunities(id),
+        FOREIGN KEY (fixture_id) REFERENCES fixtures(id)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_opportunity_snapshots_fixture
+        ON opportunity_snapshots (fixture_id, captured_at)`
+    ]
+  }
+];
+
+export function runMigrations(db: DatabaseConnection) {
+  ensureMigrationTable(db);
+  const applied = new Set(db.query<{ id: string }>("SELECT id FROM schema_migrations").map((row) => row.id));
+
+  MIGRATIONS.forEach((migration) => {
+    if (applied.has(migration.id)) return;
+
+    db.transaction(() => {
+      db.runMany(migration.statements);
+      db.run("INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)", [migration.id, Date.now()]);
+    });
+  });
+}
+
+function ensureMigrationTable(db: DatabaseConnection) {
+  db.runMany([
+    `CREATE TABLE IF NOT EXISTS schema_migrations (
+      id TEXT PRIMARY KEY,
+      applied_at INTEGER NOT NULL
+    )`
+  ]);
+}
+

@@ -41,16 +41,18 @@ The app should help users think better. It should not behave like a tipster feed
 - Team dossier endpoint and UI sections.
 - Backend proxy with local cache.
 - Historical archive path for completed seasons.
+- Normalized local database schema foundation.
+- First fixture snapshot sync into normalized leagues, seasons, teams, venues, fixtures, odds snapshots, and opportunity snapshots.
 - Assistant/Research cross-linking.
 - URL-backed navigation and in-app Back button.
 
 ### Partially Complete
 
 - Data freshness and trust UI: visible in Assistant, Research coverage, and cache chips, but not yet comprehensive.
-- Provider sync: live services exist, but there are no normalized domain tables/repositories yet.
+- Provider sync: live services and normalized write paths exist, but UI reads have not moved to repository-backed domain services yet.
 - Goal projection model: Poisson-based prototype exists, but not trained, persisted, or audited.
-- Opportunity model: calculated from fixtures, but not persisted.
-- Historical data storage: archive exists, but no admin/audit surface and no normalized schema.
+- Opportunity model: best-opportunity snapshots are persisted from fixture refreshes, but shortlist/history workflows do not exist yet.
+- Historical data storage: archive and normalized schema exist, but no admin/audit surface or repository-backed historical read workflow yet.
 - Player Research: placeholder plus some squad/player data in team dossiers, but no player entity pages.
 - Mobile/responsive layout: basic responsive styling exists, but no dedicated mobile UX pass.
 
@@ -115,7 +117,7 @@ Current status: **met for desktop MVP**.
 
 # Stage 2 - Data Foundation And Provider Sync
 
-Status: **next priority**.
+Status: **in progress**.
 
 ## Goal
 
@@ -149,7 +151,7 @@ Already implemented:
 
 Create a normalized local database layer alongside the existing response cache.
 
-Recommended first tables:
+First tables now added:
 
 - `provider_requests`
 - `leagues`
@@ -163,28 +165,35 @@ Recommended first tables:
 - `opportunities`
 - `opportunity_snapshots`
 
-Recommended first repositories:
+First repositories now added:
 
-- `server/db/schema.ts`
 - `server/db/migrations.ts`
 - `server/repositories/leaguesRepository.ts`
 - `server/repositories/teamsRepository.ts`
 - `server/repositories/fixturesRepository.ts`
 - `server/repositories/oddsRepository.ts`
 - `server/repositories/opportunitiesRepository.ts`
+- `server/repositories/providerRequestsRepository.ts`
+- `server/repositories/domainStatsRepository.ts`
 
-Recommended first sync services:
+First sync service now added:
 
-- `server/sync/syncFixtures.ts`
-- `server/sync/syncOdds.ts`
-- `server/sync/syncLeagueSeason.ts`
+- `server/sync/fixtureSnapshotSync.ts`
+
+Remaining next work:
+
+- Store raw The Odds API bookmaker event payloads directly, not only attached fixture market odds.
+- Add repository-backed service methods for opportunity history and odds movement.
+- Add saved opportunities/shortlist tables and write paths.
+- Add model audit records beyond the first opportunity snapshot input summary.
+- Add tests for migrations, repository upserts, and odds snapshot append behaviour.
 
 ## Acceptance Criteria
 
-- Static/reference data can be stored and read from local DB.
+- Static/reference data can be stored in local DB.
 - Completed seasons can be archived once and reused.
-- Odds snapshots are appended, not overwritten.
-- A basic opportunity record can be persisted with model price, market price, edge, confidence, and source fixture.
+- Attached market odds snapshots are appended, not overwritten.
+- A basic opportunity record is persisted with model price, market price, edge, confidence, and source fixture.
 
 ---
 

@@ -11,6 +11,21 @@ interface FixtureServiceDeps {
   cache: {
     getOrSet<T>(key: string, ttlMs: number, fetchFresh: () => Promise<T>): Promise<{ value: T; source: "cache" | "live" }>;
   };
+  fixtureSync?: {
+    syncFixtures(fixtures: Fixture[], source?: "live" | "cache" | "mock"): void;
+  };
+  providerRequests?: {
+    record(request: {
+      provider: string;
+      endpoint: string;
+      requestKey: string;
+      status: "success" | "failure";
+      source?: string;
+      error?: string;
+      responseRef?: string;
+      requestedAt?: number;
+    }): void;
+  };
 }
 
 export class LiveFixtureService {
@@ -25,7 +40,7 @@ export class LiveFixtureService {
   }
 
   async listFixtures() {
-    return this.deps.cache.getOrSet(
+    const result = await this.deps.cache.getOrSet(
       `live:fixtures:v3:${serverConfig.apiFootballLeagueId}:${serverConfig.apiFootballSeason}:${serverConfig.oddsSport}`,
       FIXTURE_LIST_TTL_MS,
       async () => {
@@ -58,10 +73,21 @@ export class LiveFixtureService {
         }
       }
     );
+
+    this.deps.fixtureSync?.syncFixtures(result.value, result.source);
+    this.deps.providerRequests?.record({
+      provider: "edgefinder",
+      endpoint: "listFixtures",
+      requestKey: `${serverConfig.apiFootballLeagueId}:${serverConfig.apiFootballSeason}:${serverConfig.oddsSport}`,
+      status: "success",
+      source: result.source,
+      responseRef: `fixtures:${result.value.length}`
+    });
+    return result;
   }
 
   async getFixture(id: string) {
-    return this.deps.cache.getOrSet(`live:fixture:${id}`, FIXTURE_DETAIL_TTL_MS, async () => {
+    const result = await this.deps.cache.getOrSet(`live:fixture:${id}`, FIXTURE_DETAIL_TTL_MS, async () => {
       if (id.startsWith("odds-api:")) {
         const fixtures = await this.listFixtures();
         return fixtures.value.find((fixture) => fixture.id === id);
@@ -92,6 +118,21 @@ export class LiveFixtureService {
       mapped.headToHead = await this.getHeadToHead(fixture);
       return mapped;
     });
+
+    if (result.value) {
+      this.deps.fixtureSync?.syncFixtures([result.value], result.source);
+    }
+    this.deps.providerRequests?.record({
+      provider: "edgefinder",
+      endpoint: "getFixture",
+      requestKey: id,
+      status: result.value ? "success" : "failure",
+      source: result.source,
+      responseRef: result.value?.id,
+      error: result.value ? undefined : "Fixture not found"
+    });
+
+    return result;
   }
 
   private async getHeadToHead(fixture: ApiFootballFixtureSummary): Promise<HeadToHeadMatch[]> {

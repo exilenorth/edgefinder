@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
+import type { SqliteValue } from "../db/types";
 
 interface CacheRow {
   value_json: string;
@@ -15,6 +16,7 @@ interface ArchiveRow {
 export class SqliteCache {
   private database?: Database;
   private sql?: SqlJsStatic;
+  private transactionDepth = 0;
 
   constructor(private readonly dbPath: string) {}
 
@@ -109,6 +111,52 @@ export class SqliteCache {
       [key, kind, JSON.stringify(value), completeness, Date.now()]
     );
     this.persist();
+  }
+
+  run(sql: string, params: SqliteValue[] = []) {
+    this.assertDatabase().run(sql, params);
+    this.persistIfOutsideTransaction();
+  }
+
+  runMany(statements: string[]) {
+    const db = this.assertDatabase();
+    statements.forEach((statement) => db.run(statement));
+    this.persistIfOutsideTransaction();
+  }
+
+  query<T extends Record<string, unknown>>(sql: string, params: SqliteValue[] = []): T[] {
+    const statement = this.assertDatabase().prepare(sql);
+    statement.bind(params);
+    const rows: T[] = [];
+
+    while (statement.step()) {
+      rows.push(statement.getAsObject() as T);
+    }
+
+    statement.free();
+    return rows;
+  }
+
+  transaction(run: () => void) {
+    const db = this.assertDatabase();
+    db.run("BEGIN");
+    this.transactionDepth += 1;
+    try {
+      run();
+      db.run("COMMIT");
+      this.transactionDepth -= 1;
+      this.persist();
+    } catch (error) {
+      db.run("ROLLBACK");
+      this.transactionDepth -= 1;
+      throw error;
+    }
+  }
+
+  private persistIfOutsideTransaction() {
+    if (this.transactionDepth === 0) {
+      this.persist();
+    }
   }
 
   private persist() {

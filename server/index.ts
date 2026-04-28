@@ -1,17 +1,25 @@
 import express from "express";
 import { SqliteCache } from "./cache/sqliteCache";
 import { serverConfig } from "./config";
+import { runMigrations } from "./db/migrations";
+import { DomainStatsRepository } from "./repositories/domainStatsRepository";
+import { ProviderRequestsRepository } from "./repositories/providerRequestsRepository";
 import { LeagueHistoricalService } from "./services/leagueHistoricalService";
 import { LiveFixtureService } from "./services/liveFixtureService";
 import { TeamDossierService } from "./services/teamDossierService";
+import { FixtureSnapshotSync } from "./sync/fixtureSnapshotSync";
 
 const app = express();
 const cache = new SqliteCache(serverConfig.cacheDbPath);
 await cache.init();
+runMigrations(cache);
 
-const fixtures = new LiveFixtureService({ cache });
+const fixtureSync = new FixtureSnapshotSync(cache);
+const providerRequests = new ProviderRequestsRepository(cache);
+const fixtures = new LiveFixtureService({ cache, fixtureSync, providerRequests });
 const teams = new TeamDossierService({ cache });
 const leagues = new LeagueHistoricalService({ cache });
+const domainStats = new DomainStatsRepository(cache);
 
 app.use(express.json());
 
@@ -19,8 +27,16 @@ app.get("/api/health", (_request, response) => {
   response.json({
     ok: true,
     cache: "sqlite",
+    normalizedDb: true,
     apiFootballConfigured: Boolean(serverConfig.apiFootballKey),
     oddsApiConfigured: Boolean(serverConfig.oddsApiKey)
+  });
+});
+
+app.get("/api/db/summary", (_request, response) => {
+  response.json({
+    ok: true,
+    tables: domainStats.getSummary()
   });
 });
 
