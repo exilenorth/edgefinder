@@ -1,20 +1,48 @@
 # EdgeFinder
 
-Football betting decision-support dashboard built around two clear product areas: **Betting Assistant** and **Research Hub**.
+EdgeFinder is a football betting decision-support app. It is designed to help a user find fixtures worth investigating, understand the modelled edge, inspect the risks, and drill into the supporting league/team evidence before making their own decision.
 
-## Product Structure
+The product is deliberately split into two connected areas:
 
-EdgeFinder is intended to feel like two connected tools under one roof:
+- **Betting Assistant**: scan opportunities, select a fixture, read the decision thesis, risks, probabilities, and supporting evidence.
+- **Research Hub**: browse leagues and teams, inspect current and historical context, follow entities, and jump back into relevant Assistant fixture analysis.
 
-1. **Betting Assistant** — a fast, opinionated decision area for finding fixtures and markets worth investigating.
-2. **Research Hub** — a deep evidence area for exploring leagues, teams, players, fixtures, and historical seasons.
+EdgeFinder is not a tips app and should not present model output as certainty. The UI should keep uncertainty, stale data, cached data, missing lineups, and prototype model status visible.
 
-The goal is to separate decisions from evidence:
+## Current State
 
-- Betting Assistant answers: “What should I look at, why, and how much should I trust it?”
-- Research Hub answers: “Show me the underlying data so I can investigate properly.”
+As of 28 April 2026, the app has a working React/Vite frontend and Express backend proxy.
 
-See [`docs/product-structure.md`](docs/product-structure.md) for the detailed information architecture.
+Implemented product features:
+
+- Assistant and Research top-level navigation.
+- URL-backed app state for `view`, selected `fixture`, and selected research entity.
+- In-app back navigation between Assistant and Research.
+- Fixture sidebar with date, league, followed-only, and grouped fixture filters.
+- Follow state for leagues and teams persisted in local storage.
+- Edge Dashboard at the top of the Assistant.
+- Opportunity filters: All, Today, 24h, Weekend, Following, Positive edge.
+- Selected fixture decision flow with thesis, reasons, risk, counterargument, probabilities, and collapsible evidence.
+- Candidate / Watch / No clear edge language instead of direct betting-advice wording.
+- Assistant-to-Research links for teams and leagues.
+- Research-to-Assistant links from fixture rows.
+- Research Hub with Current and Historical modes.
+- League, Team, and Player tabs, with Player Research currently a structured placeholder.
+- Current EPL team normalisation and curated club/stadium profile support.
+- Historical league dossiers with standings, top scorers, top assists, and coverage indicators.
+- Team dossier views for overview, squad, lineups, manager, stadium, fixtures, and transfers where provider data is available.
+- API-Football and The Odds API clients behind the local backend.
+- Frontend IndexedDB cache and backend SQLite-compatible cache/archive.
+- API audit scripts and provider documentation.
+
+Important limitations:
+
+- The current goal model is a pragmatic projection model, not true shot-location xG.
+- Current-season API-Football data may be limited by plan coverage.
+- Odds snapshots are not yet stored as a historical time series.
+- Opportunities are calculated on the fly from fixture snapshots, not persisted.
+- Player Research is not yet a full entity detail workflow.
+- There is no automated test suite yet.
 
 ## Local Setup
 
@@ -24,7 +52,7 @@ Install dependencies:
 npm install
 ```
 
-Copy `.env.example` to `.env.local` and fill in your own API keys:
+Copy `.env.example` to `.env.local` and fill in your own keys:
 
 ```bash
 VITE_THE_ODDS_API_KEY=...
@@ -33,44 +61,77 @@ THE_ODDS_API_KEY=...
 API_FOOTBALL_KEY=...
 ```
 
-For API-Football league seasons, use the season start year. For example, the 2025/26 Premier League season is `2025`.
-
 Run the app:
 
 ```bash
 npm run dev
 ```
 
-This starts both services:
+This starts:
 
 - Frontend: `http://127.0.0.1:5173`
 - Backend API proxy: `http://127.0.0.1:8787`
 
+Build and type-check:
+
+```bash
+npm run build
+npm run server:check
+```
+
+## Scripts
+
+- `npm run dev`: starts backend and frontend together.
+- `npm run dev:web`: starts Vite only.
+- `npm run dev:server`: starts the Express backend in watch mode.
+- `npm run build`: TypeScript check plus Vite production build.
+- `npm run preview`: preview production build.
+- `npm run server`: starts the backend once.
+- `npm run server:check`: type-checks the backend.
+- `npm run audit:api-football`: runs API-Football audit tooling.
+- `npm run audit:odds`: runs The Odds API audit tooling.
+
+## Documentation
+
+- [Implementation Roadmap](docs/implementation-roadmap.md)
+- [Technical Specification](docs/technical-specification.md)
+- [Product Structure](docs/product-structure.md)
+- [Data Storage Strategy](docs/data-storage-strategy.md)
+- [API-Football Endpoint Map](docs/api-football-endpoints.md)
+- [Provider Audit Findings](docs/provider-audit-findings.md)
+
 ## Data Providers
 
-The app renders through `backendProvider`, which calls local `/api` endpoints. The backend owns the live provider calls and falls back to mock fixtures if live data is unavailable.
+The frontend calls `backendProvider`, which talks to local `/api` endpoints. The backend owns provider keys, provider calls, caching, and fallback behaviour.
 
-- The Odds API: `src/providers/theOddsApiClient.ts`
-- API-Football: `src/providers/apiFootballClient.ts`
+Current provider responsibilities:
 
-Keep API keys out of committed source. For a deployed app, live provider calls should remain behind the backend proxy so keys are not exposed in browser JavaScript.
+- API-Football: fixtures, teams, head-to-heads, standings, top scorers, top assists, squads, coaches, injuries, transfers, lineups, coverage.
+- The Odds API: fixture odds and market pricing for supported football sports.
 
-## Caching Strategy
+If live providers fail or are unavailable, the app falls back to mock fixture data so the UI remains usable.
 
-The frontend keeps a short IndexedDB cache under `edgefinder-cache` to avoid repeated UI fetches. The backend also stores provider responses in a local SQLite-compatible cache file under `data/edgefinder-cache.sqlite`, which keeps API keys and rate-limit protection on the server side.
+## Caching
 
-Suggested TTLs when live data is wired:
+EdgeFinder currently has two cache layers:
 
-- Fixture list: 10-30 minutes
-- Pre-match odds: 2-5 minutes near kick-off, 15 minutes otherwise
-- Team/player historical stats: 12-24 hours
-- Completed fixture stats: cache indefinitely once final
+- Frontend IndexedDB cache: short-lived UI cache for fixture requests.
+- Backend SQLite-compatible cache/archive: provider response cache plus static historical archive support.
 
-## Intended Live Flow
+Historical completed-season data should be fetched once, archived locally, and then reused indefinitely unless a manual refresh/audit is requested.
 
-1. API-Football fetches fixtures, team IDs, head-to-heads, form, team stats, and player stats.
-2. The Odds API fetches market prices for the matching sport key, regions/bookmakers, and markets.
-3. A mapper reconciles events by home team, away team, and kick-off time.
-4. The model computes fair prices from expected goals and scorer threat.
-5. The Betting Assistant highlights potential opportunities with confidence, freshness, and risk context.
-6. The Research Hub lets users inspect the supporting league, team, player, and fixture data.
+## Product Direction
+
+The next major product step is to move from a cached API wrapper plus prototype model toward a proper modelling/data platform:
+
+1. Add persistent domain tables and repositories.
+2. Store odds events and odds snapshots.
+3. Persist opportunities and opportunity snapshots.
+4. Build a reproducible goal projection model with audit output.
+5. Use stored odds movement to show edge decay and closing line value.
+6. Add lineup-adjusted rechecks.
+7. Build real Player Research and player-market context.
+
+The north star remains simple:
+
+> EdgeFinder should explain the opportunity, the risk, the counterargument, and whether the price still works.
