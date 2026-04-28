@@ -1,8 +1,44 @@
 import type { Fixture, TeamDossier, TeamSnapshot } from "../../src/types";
 import type { DatabaseConnection } from "../db/types";
 
+interface TeamRow {
+  [key: string]: unknown;
+  id: string; provider: string; provider_team_id: string | null;
+  name: string; logo_url: string | null; country: string | null;
+  founded: number | null; venue_id: string | null; updated_at: number;
+}
+
 export class TeamsRepository {
   constructor(private readonly db: DatabaseConnection) {}
+
+  listAll(): { id: string; name: string; logoUrl: string | null }[] {
+    const rows = this.db.query<TeamRow>(
+      "SELECT id, name, logo_url FROM teams ORDER BY name ASC"
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      logoUrl: row.logo_url
+    }));
+  }
+
+  listWithFixtures(): { id: string; name: string; logoUrl: string | null; fixtureCount: number }[] {
+    const rows = this.db.query<{ id: string; name: string; logo_url: string | null; fixture_count: number }>(
+      `SELECT t.id, t.name, t.logo_url, COUNT(ft.fixture_id) as fixture_count
+       FROM teams t
+       INNER JOIN fixture_teams ft ON ft.team_id = t.id
+       INNER JOIN fixtures f ON f.id = ft.fixture_id AND f.kickoff >= ?
+       GROUP BY t.id
+       ORDER BY fixture_count DESC, t.name ASC`,
+      [new Date().toISOString()]
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      logoUrl: row.logo_url,
+      fixtureCount: row.fixture_count
+    }));
+  }
 
   upsertTeamSnapshot(team: TeamSnapshot, venueId?: string) {
     this.upsertTeam({

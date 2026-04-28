@@ -12,3 +12,10 @@ reports/api-audit/*.json
 !reports/
 !reports/api-audit/
 !reports/api-audit/.gitkeep
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

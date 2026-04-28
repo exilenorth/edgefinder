@@ -3,12 +3,16 @@ import { SqliteCache } from "./cache/sqliteCache";
 import { serverConfig } from "./config";
 import { runMigrations } from "./db/migrations";
 import { DomainStatsRepository } from "./repositories/domainStatsRepository";
+import { FixturesRepository } from "./repositories/fixturesRepository";
+import { LeaguesRepository } from "./repositories/leaguesRepository";
 import { OddsRepository } from "./repositories/oddsRepository";
 import { ProviderRequestsRepository } from "./repositories/providerRequestsRepository";
 import { SeasonResearchRepository } from "./repositories/seasonResearchRepository";
+import { TeamsRepository } from "./repositories/teamsRepository";
 import { HistoricalSeasonSyncService } from "./services/historicalSeasonSyncService";
 import { LeagueHistoricalService } from "./services/leagueHistoricalService";
 import { LiveFixtureService } from "./services/liveFixtureService";
+import { NormalizedFixtureService } from "./services/normalizedFixtureService";
 import { TeamDossierService } from "./services/teamDossierService";
 import { FixtureSnapshotSync } from "./sync/fixtureSnapshotSync";
 import { OddsSnapshotSync } from "./sync/oddsSnapshotSync";
@@ -28,6 +32,11 @@ const leagues = new LeagueHistoricalService({ cache, seasonResearch });
 const historicalSeasonSync = new HistoricalSeasonSyncService({ leagues, teams, seasonResearch });
 const domainStats = new DomainStatsRepository(cache);
 const oddsRepository = new OddsRepository(cache);
+
+const fixturesRepo = new FixturesRepository(cache);
+const leaguesRepo = new LeaguesRepository(cache);
+const teamsRepo = new TeamsRepository(cache);
+const normalizedFixtures = new NormalizedFixtureService({ fixtures: fixturesRepo, leagues: leaguesRepo, teams: teamsRepo });
 
 app.use(express.json());
 
@@ -115,6 +124,54 @@ app.get("/api/fixtures/:id/odds-movement", (request, response, next) => {
       fixtureId: request.params.id,
       markets: oddsRepository.listFixtureOddsMovement(request.params.id)
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/normalized/fixtures", (_request, response, next) => {
+  try {
+    const leagueId = typeof _request.query.league === "string" ? _request.query.league : undefined;
+    const season = numberQuery(_request.query.season);
+    const result = normalizedFixtures.listFixtures({ leagueId, season });
+    response.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/normalized/fixtures/snapshot", (_request, response, next) => {
+  try {
+    response.json(normalizedFixtures.getSnapshot());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/normalized/fixtures/:id", (request, response, next) => {
+  try {
+    const result = normalizedFixtures.getFixture(request.params.id);
+    if (!result) {
+      response.status(404).json({ error: "Fixture not found in normalized store" });
+      return;
+    }
+    response.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/normalized/leagues", (_request, response, next) => {
+  try {
+    response.json(normalizedFixtures.listLeaguesWithFixtures());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/normalized/teams", (_request, response, next) => {
+  try {
+    response.json(normalizedFixtures.listTeamsWithFixtures());
   } catch (error) {
     next(error);
   }
