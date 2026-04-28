@@ -2651,3 +2651,293 @@ dd {
     gap: 10px;
   }
 }
+
+/* Research centre responsive polish */
+.stats-workspace {
+  gap: 18px;
+}
+
+.stats-header h1 {
+  max-width: 920px;
+  font-size: clamp(2rem, 4.6vw, 3.7rem);
+}
+
+.stats-centre {
+  align-items: start;
+}
+
+.stats-browser {
+  position: sticky;
+  top: 18px;
+}
+
+.stats-browser-summary {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(125, 183, 255, 0.11), rgba(18, 27, 35, 0.92));
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.stats-browser-summary span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.stats-browser-summary strong {
+  color: var(--text);
+  font-size: 1.08rem;
+}
+
+.stats-browser-summary small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.stats-browser-item {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.stats-browser-item .browser-title {
+  min-width: 0;
+}
+
+.stats-browser-item strong {
+  justify-self: end;
+  text-align: right;
+}
+
+.stats-browser-item small {
+  grid-column: 1 / -1;
+}
+
+.stats-browser-item.is-selected {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.detail-header {
+  overflow: hidden;
+}
+
+.entity-heading {
+  min-width: 0;
+}
+
+.entity-heading h2 {
+  overflow-wrap: anywhere;
+}
+
+.detail-tabs {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(18, 27, 35, 0.68);
+  padding: 6px;
+}
+
+.detail-tabs button {
+  flex: 1 1 auto;
+  min-width: max-content;
+}
+
+.detail-metrics .metric {
+  min-width: 0;
+}
+
+.detail-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.detail-metrics.compact,
+.venue-facts,
+.position-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.detail-metrics .metric strong,
+.venue-facts .metric strong,
+.position-grid .metric strong {
+  overflow-wrap: anywhere;
+  line-height: 1.1;
+}
+
+.stats-empty.compact {
+  padding: 14px;
+  line-height: 1.45;
+}
+
+.standings-table {
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.standings-head,
+.standings-row {
+  min-width: 720px;
+}
+
+.ranking-row,
+.detail-fixture-row,
+.lineup-row,
+.data-requirements div,
+.club-profile-card div {
+  min-width: 0;
+}
+
+.ranking-team,
+.browser-title,
+.detail-fixture-row strong,
+.lineup-row strong,
+.data-requirements strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-fixture-row small,
+.next-fixture-card small {
+  text-align: right;
+}
+
+@media (max-width: 1180px) {
+  .stats-centre {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .stats-header h1 {
+    font-size: clamp(1.9rem, 4.2vw, 3rem);
+  }
+
+  .stats-browser {
+    top: 14px;
+  }
+}
+
+@media (max-width: 980px) {
+  .stats-browser {
+    position: static;
+  }
+
+  .stats-browser-list {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(220px, 1fr);
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    padding: 0 0 6px;
+    scroll-snap-type: x proximity;
+  }
+
+  .stats-browser-item,
+  .stats-browser-note,
+  .stats-empty.compact {
+    scroll-snap-align: start;
+  }
+
+  .stats-detail {
+    gap: 14px;
+  }
+}
+
+@media (max-width: 760px) {
+  .stats-workspace {
+    gap: 14px;
+  }
+
+  .stats-header .meta-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .stats-header .meta-row span {
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+
+  .research-mode-note {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .stats-browser-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-browser-list {
+    grid-auto-columns: minmax(78%, 1fr);
+  }
+
+  .stats-browser-item {
+    min-height: 92px;
+  }
+
+  .detail-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-tabs button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .standings-table {
+    overflow: visible;
+  }
+
+  .standings-row {
+    min-width: 0;
+    grid-template-columns: auto 1fr;
+    gap: 8px 12px;
+  }
+
+  .standings-row span:first-child {
+    font-weight: 900;
+    color: var(--text);
+  }
+
+  .standings-row span:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    font-size: 0.82rem;
+  }
+
+  .detail-fixture-row {
+    align-items: start;
+  }
+
+  .detail-fixture-row small,
+  .next-fixture-card small {
+    text-align: left;
+  }
+
+  .table-row {
+    border-left: 3px solid var(--border-strong);
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-header .meta-row,
+  .detail-metrics,
+  .detail-metrics.compact,
+  .venue-facts,
+  .position-grid,
+  .detail-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-browser-list {
+    grid-auto-columns: minmax(88%, 1fr);
+  }
+
+  .coverage-grid {
+    grid-template-columns: 1fr;
+  }
+}

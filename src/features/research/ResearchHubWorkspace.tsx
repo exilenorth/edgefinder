@@ -259,6 +259,26 @@ export function ResearchHubWorkspace({
 
       <section className="stats-centre">
         <aside className="stats-browser" aria-label="Stats browser">
+          <div className="stats-browser-summary" aria-label="Visible research results">
+            <span>{statsTab}</span>
+            <strong>
+              {statsTab === "leagues"
+                ? `${filteredLeagues.length} leagues`
+                : statsTab === "teams"
+                  ? `${filteredTeams.length} teams`
+                  : "Player pages planned"}
+            </strong>
+            <small>
+              {followedOnly
+                ? "Showing followed items only"
+                : query
+                  ? `Filtered by "${query}"`
+                  : statsMode === "historical"
+                    ? `Historical ${formatSeasonLabel(selectedSeason)}`
+                    : "Current workspace"}
+            </small>
+          </div>
+
           <div className="stats-tabs">
             <button
               className={statsTab === "leagues" ? "is-active" : ""}
@@ -285,41 +305,49 @@ export function ResearchHubWorkspace({
 
           {statsTab === "leagues" ? (
             <div className="stats-browser-list">
-              {filteredLeagues.map((league) => (
-                <button
-                  className={`stats-browser-item ${selectedLeague?.name === league.name ? "is-selected" : ""}`}
-                  type="button"
-                  key={league.name}
-                  onClick={() => setSelectedLeagueName(league.name)}
-                >
-                  <span className="browser-title">
-                    <LogoMark src={league.logoUrl ?? getLeagueLogoUrl(league.name)} label={league.name} size="small" />
-                    {league.name}
-                  </span>
-                  <strong>{league.fixtureCount} fixtures</strong>
-                  <small>{league.teamCount} teams</small>
-                </button>
-              ))}
+              {filteredLeagues.length ? (
+                filteredLeagues.map((league) => (
+                  <button
+                    className={`stats-browser-item ${selectedLeague?.name === league.name ? "is-selected" : ""}`}
+                    type="button"
+                    key={league.name}
+                    onClick={() => setSelectedLeagueName(league.name)}
+                  >
+                    <span className="browser-title">
+                      <LogoMark src={league.logoUrl ?? getLeagueLogoUrl(league.name)} label={league.name} size="small" />
+                      {league.name}
+                    </span>
+                    <strong>{league.fixtureCount} fixtures</strong>
+                    <small>{league.teamCount} teams</small>
+                  </button>
+                ))
+              ) : (
+                <div className="stats-empty compact">No leagues match these filters. Clear search or turn off followed-only.</div>
+              )}
             </div>
           ) : statsTab === "teams" ? (
             <div className="stats-browser-list">
-              {filteredTeams.map((teamSummary) => (
-                <button
-                  className={`stats-browser-item ${
-                    selectedTeam && getTeamSummaryKey(selectedTeam) === getTeamSummaryKey(teamSummary) ? "is-selected" : ""
-                  }`}
-                  type="button"
-                  key={getTeamSummaryKey(teamSummary)}
-                  onClick={() => setSelectedTeamKey(getTeamSummaryKey(teamSummary))}
-                >
-                  <span className="browser-title">
-                    <LogoMark src={getTeamLogoUrl(teamSummary.team)} label={teamSummary.team.name} size="small" />
-                    {teamSummary.team.name}
-                  </span>
-                  <strong>{teamSummary.league}</strong>
-                  <small>{teamSummary.fixtureCount} fixtures</small>
-                </button>
-              ))}
+              {filteredTeams.length ? (
+                filteredTeams.map((teamSummary) => (
+                  <button
+                    className={`stats-browser-item ${
+                      selectedTeam && getTeamSummaryKey(selectedTeam) === getTeamSummaryKey(teamSummary) ? "is-selected" : ""
+                    }`}
+                    type="button"
+                    key={getTeamSummaryKey(teamSummary)}
+                    onClick={() => setSelectedTeamKey(getTeamSummaryKey(teamSummary))}
+                  >
+                    <span className="browser-title">
+                      <LogoMark src={getTeamLogoUrl(teamSummary.team)} label={teamSummary.team.name} size="small" />
+                      {teamSummary.team.name}
+                    </span>
+                    <strong>{teamSummary.league}</strong>
+                    <small>{teamSummary.fixtureCount} fixtures</small>
+                  </button>
+                ))
+              ) : (
+                <div className="stats-empty compact">No teams match these filters. Follow teams directly or widen the search.</div>
+              )}
             </div>
           ) : (
             <div className="stats-browser-list">
@@ -372,7 +400,7 @@ export function ResearchHubWorkspace({
               onOpenFixtureInAssistant={onOpenFixtureInAssistant}
             />
           ) : (
-            <div className="stats-empty">No matching stats loaded.</div>
+            <div className="stats-empty">No matching stats loaded. Try clearing search, switching tabs, or turning off followed-only.</div>
           )}
         </div>
       </section>
