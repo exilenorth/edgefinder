@@ -11,38 +11,39 @@ EdgeFinder is not a tips app and should not present model output as certainty. T
 
 ## Current State
 
-As of 28 April 2026, the app has a working React/Vite frontend and Express backend proxy.
+As of 28 April 2026, the app has a working desktop MVP with a React/Vite frontend and Express backend proxy.
 
-Implemented product features:
+**Implemented product features:**
 
-- Assistant and Research top-level navigation.
-- URL-backed app state for `view`, selected `fixture`, and selected research entity.
-- In-app back navigation between Assistant and Research.
-- Fixture sidebar with date, league, followed-only, and grouped fixture filters.
-- Follow state for leagues and teams persisted in local storage.
-- Edge Dashboard at the top of the Assistant.
-- Opportunity filters: All, Today, 24h, Weekend, Following, Positive edge.
-- Selected fixture decision flow with thesis, reasons, risk, counterargument, probabilities, and collapsible evidence.
-- Candidate / Watch / No clear edge language instead of direct betting-advice wording.
-- Assistant-to-Research links for teams and leagues.
-- Research-to-Assistant links from fixture rows.
-- Research Hub with Current and Historical modes.
-- League, Team, and Player tabs, with Player Research currently a structured placeholder.
-- Current EPL team normalisation and curated club/stadium profile support.
-- Historical league dossiers with standings, top scorers, top assists, and coverage indicators.
-- Team dossier views for overview, squad, lineups, manager, stadium, fixtures, and transfers where provider data is available.
-- API-Football and The Odds API clients behind the local backend.
-- Frontend IndexedDB cache and backend SQLite-compatible cache/archive.
-- API audit scripts and provider documentation.
+- Assistant and Research top-level navigation with URL-backed state
+- In-app back navigation and browser back/forward support
+- Edge Dashboard with opportunity filters (All, Today, 24h, Weekend, Following, Positive edge)
+- Selected fixture decision flow: thesis, reasons, risk, counterargument, probabilities, collapsible evidence
+- Candidate / Watch / No clear edge language
+- Assistant-to-Research and Research-to-Assistant cross-links
+- Research Hub with Current and Historical modes, season selector
+- Historical league dossiers: standings, top scorers, top assists, coverage indicators
+- Team dossier views: overview, squad, lineups, manager, stadium, fixtures, transfers
+- Curated EPL club and stadium profiles
+- Follow state for leagues and teams persisted in local storage
+- API-Football v3 and The Odds API v4 clients behind the local backend
+- Frontend IndexedDB cache + backend SQLite response cache
+- Normalized local database layer (19 tables across 2 migrations)
+- Repository layer (8 repositories) and sync services (fixture + odds snapshots)
+- Historical season import runner (`npm run sync:historical-season`)
+- `/api/fixtures/:id/odds-movement` endpoint for future edge-decay UI
+- `/api/db/summary` developer endpoint for normalized table row counts
+- API audit scripts and provider documentation
+- Player Research structured placeholder
 
-Important limitations:
+**Important limitations:**
 
-- The current goal model is a pragmatic projection model, not true shot-location xG.
-- Current-season API-Football data may be limited by plan coverage.
-- Odds snapshots are not yet stored as a historical time series.
-- Opportunities are calculated on the fly from fixture snapshots, not persisted.
-- Player Research is not yet a full entity detail workflow.
-- There is no automated test suite yet.
+- The goal model is a pragmatic Poisson projection model, not true shot-location xG
+- Current-season API-Football data may be limited by free-tier plan coverage
+- Odds snapshots are stored but not yet surfaced in a time-series or edge-decay UI
+- UI reads still use the cache/provider path; the normalized layer is written to but not the read source
+- Player Research is not yet a full entity detail workflow
+- No automated test suite yet (TypeScript strict mode + tsc serves as primary safety net)
 
 ## Local Setup
 
@@ -93,12 +94,13 @@ npm run server:check
 
 ## Documentation
 
-- [Implementation Roadmap](docs/implementation-roadmap.md)
-- [Technical Specification](docs/technical-specification.md)
-- [Product Structure](docs/product-structure.md)
-- [Data Storage Strategy](docs/data-storage-strategy.md)
-- [API-Football Endpoint Map](docs/api-football-endpoints.md)
-- [Provider Audit Findings](docs/provider-audit-findings.md)
+- [Project Status](docs/project-status.md) -- current state, architecture, and next steps
+- [Implementation Roadmap](docs/implementation-roadmap.md) -- 12-stage feature roadmap
+- [Technical Specification](docs/technical-specification.md) -- runtime stack, API, data flow, types
+- [Product Structure](docs/product-structure.md) -- two-product-area design
+- [Data Storage Strategy](docs/data-storage-strategy.md) -- local DB design and sync strategy
+- [API-Football Endpoint Map](docs/api-football-endpoints.md) -- full endpoint inventory
+- [Provider Audit Findings](docs/provider-audit-findings.md) -- audit results and implications
 
 ## Data Providers
 

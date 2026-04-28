@@ -1,8 +1,9 @@
 # EdgeFinder Refactoring Plan
 
 Drafted: **2026-04-27**
+Executed: **2026-04-27** -- All 7 steps completed. See `git log --oneline` for the resulting commits.
 
-This document captures the recommended near-term refactoring plan for EdgeFinder as of 2026-04-27.
+This document is retained as a historical record.
 
 The goal is not to redesign the app yet. The goal is to reduce future development pain by separating the current large React entry file into clearer app, assistant, research, component, and utility boundaries while preserving existing behaviour.
 

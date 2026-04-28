@@ -41,10 +41,13 @@ The app should help users think better. It should not behave like a tipster feed
 - Team dossier endpoint and UI sections.
 - Backend proxy with local cache.
 - Historical archive path for completed seasons.
-- Normalized local database schema foundation.
-- First fixture snapshot sync into normalized leagues, seasons, teams, venues, fixtures, odds snapshots, and opportunity snapshots.
+- Normalized local database schema foundation (19 tables, 2 migrations).
+- Repository layer: 8 repositories for leagues, teams, fixtures, odds, opportunities, provider requests, domain stats, and season research.
+- Sync services: fixture snapshot sync and odds snapshot sync write normalized data during live refreshes.
+- Historical season sync runner (`scripts/sync-historical-season.ts`) for importing completed seasons.
 - Raw The Odds API event snapshots are written to normalized odds tables during live refreshes.
-- Fixture odds movement read endpoint exists for future edge-decay UI.
+- Fixture odds movement read endpoint (`/api/fixtures/:id/odds-movement`) exists for future edge-decay UI.
+- Developer DB summary endpoint (`/api/db/summary`).
 - Assistant/Research cross-linking.
 - URL-backed navigation and in-app Back button.
 
@@ -60,7 +63,7 @@ The app should help users think better. It should not behave like a tipster feed
 
 ### Not Started
 
-- Odds snapshot history.
+- Odds movement and edge-decay UI (data stored, UI not built).
 - Edge decay and first-price/current-price comparison.
 - Saved opportunity shortlist.
 - Bet history.
@@ -72,12 +75,13 @@ The app should help users think better. It should not behave like a tipster feed
 
 ## Roadmap Stage
 
-We are currently at the transition between:
+We are currently in:
 
-- **Stage 1: Product shape and decision UX**: mostly complete.
-- **Stage 2: Data foundation and persistence**: started, but not yet structurally complete.
+- **Stage 2: Data foundation and persistence**: substantially progressed, not yet structurally complete.
 
-The next best priority is Stage 2: normalized local database schema, sync services, odds snapshots, and persisted opportunities. That unlocks the bigger USP features without repeatedly rebuilding the UI.
+Stage 1 (product shape and decision UX) is complete for desktop MVP. Stage 2 has the schema, repositories, sync services, and historical import runner in place. The remaining gap is making the normalized layer the read source for the UI and building the features it unlocks (odds movement, edge decay, saved opportunities, model audit).
+
+The next best priority is completing Stage 2: migrating UI reads to the normalized layer, adding odds movement UI, persisting opportunity history, and adding model audit records.
 
 ---
 
@@ -148,45 +152,18 @@ Already implemented:
 - League historical dossier service.
 - Completed-season historical archive path.
 - Cache policy helpers for season-aware TTLs.
+- Normalized schema via migrations (19 tables across 2 migrations).
+- Repository layer (8 repositories).
+- Sync services: `FixtureSnapshotSync` and `OddsSnapshotSync`.
+- Historical season import runner (`scripts/sync-historical-season.ts`).
+- `SeasonResearchRepository` for league and team dossier persistence.
 
 ## Next Implementation Slice
 
-Create a normalized local database layer alongside the existing response cache.
+The normalized write path is solid. The remaining Stage 2 work focuses on the read path and the features the data layer unlocks:
 
-First tables now added:
-
-- `provider_requests`
-- `leagues`
-- `league_seasons`
-- `teams`
-- `venues`
-- `fixtures`
-- `fixture_teams`
-- `odds_events`
-- `odds_snapshots`
-- `opportunities`
-- `opportunity_snapshots`
-
-First repositories now added:
-
-- `server/db/migrations.ts`
-- `server/repositories/leaguesRepository.ts`
-- `server/repositories/teamsRepository.ts`
-- `server/repositories/fixturesRepository.ts`
-- `server/repositories/oddsRepository.ts`
-- `server/repositories/opportunitiesRepository.ts`
-- `server/repositories/providerRequestsRepository.ts`
-- `server/repositories/domainStatsRepository.ts`
-
-First sync service now added:
-
-- `server/sync/fixtureSnapshotSync.ts`
-- `server/sync/oddsSnapshotSync.ts`
-
-Remaining next work:
-
-- Add Assistant UI for odds movement and edge decay.
-- Add repository-backed service methods for opportunity history.
+- Migrate UI reads from the response cache to the normalized layer (fixtures, teams, leagues).
+- Add Assistant UI for odds movement and edge decay (using existing `odds_snapshots` data).
 - Add saved opportunities/shortlist tables and write paths.
 - Add model audit records beyond the first opportunity snapshot input summary.
 - Add tests for migrations, repository upserts, and odds snapshot append behaviour.
@@ -506,54 +483,76 @@ Status: **not started**.
 
 ## PR A - Technical Docs Refresh
 
-Status: current work.
+Status: **complete** (28 April 2026).
 
 - Update README.
-- Add technical specification.
-- Update roadmap stage status.
+- Add project status document.
+- Update roadmap stage status and progress.
+- Update technical specification.
 
 ## PR B - Database Schema Foundation
 
-- Add normalized schema/migrations.
-- Add repositories for leagues, teams, fixtures, odds, and opportunities.
-- Keep existing response cache working.
-- Add server checks.
+Status: **complete**.
+
+- Normalized schema/migrations (19 tables).
+- Repositories for leagues, teams, fixtures, odds, opportunities, domain stats, provider requests, season research.
+- Existing response cache still working.
 
 ## PR C - Odds Snapshot Ingestion
 
-- Store The Odds API events and market snapshots.
-- Add endpoint or service method for refreshing fixture odds.
-- Surface snapshot source/freshness in Assistant.
+Status: **complete**.
+
+- The Odds API events and market snapshots written during live refreshes.
+- `/api/fixtures/:id/odds-movement` endpoint.
+- Sync services for odds events and snapshots.
 
 ## PR D - Persist Opportunity Snapshots
 
-- Store model output and opportunity summaries.
-- Add first seen/current status.
-- Prepare for edge decay.
+Status: **partial**.
 
-## PR E - Goal Model Audit Output
+- Best-opportunity snapshots persisted from fixture refreshes.
+
+Remaining:
+- Shortlist and history UI.
+- Saved opportunity workflow.
+
+## PR E - Normalized Read Path Migration
+
+Status: **next priority**.
+
+- Migrate fixture list reads from response cache to normalized tables.
+- Repository-backed service methods for Assistant/Research.
+- Keep existing cache/provider path working alongside.
+
+## PR F - Odds Movement and Edge Decay UI
+
+Status: **not started** (data exists, UI needed).
+
+- Assistant cards showing first/current/fair price.
+- Edge decay status labels.
+- Stale odds warnings.
+
+## PR G - Model Audit Output
 
 - Formalize model input/output types.
 - Add audit payload.
 - Add tests for probability sums and fair odds.
 
-## PR F - Mobile Assistant Pass
+## PR H - Mobile Assistant Pass
 
 - Dedicated mobile ordering.
 - Sidebar/filter drawer behaviour.
-- Compact decision card and evidence sections.
 
-## PR G - Player Research MVP
+## PR I - Player Research MVP
 
 - Player entity route/state.
 - Player season stats sync.
 - Player detail page.
-- Assistant scorer-row links into Player Research.
 
 ---
 
 # Current Recommendation
 
-Do **PR B - Database Schema Foundation** next.
+Do **PR E - Normalized Read Path Migration** next.
 
-The UX skeleton is now strong enough. The app will improve most by giving itself memory: normalized fixtures, odds snapshots, persisted opportunities, and model audit records. That foundation makes edge decay, CLV, saved opportunities, lineup rechecks, and post-match review much easier to build cleanly.
+The normalized database now exists with 19 tables, 8 repositories, 2 sync services, and a historical import runner. PRs B and C are complete. PR D is partial. The app will improve most by making the normalized layer the read source for fixture data, which unlocks odds movement UI, edge decay, saved opportunities, CLV, lineup rechecks, and post-match review.

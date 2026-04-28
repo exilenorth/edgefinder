@@ -79,10 +79,12 @@ server/
     oddsRepository.ts
     opportunitiesRepository.ts
     providerRequestsRepository.ts
+    seasonResearchRepository.ts
     teamsRepository.ts
   services/
-    liveFixtureService.ts
+    historicalSeasonSyncService.ts
     leagueHistoricalService.ts
+    liveFixtureService.ts
     seasonCachePolicy.ts
     teamDossierService.ts
   sync/
@@ -241,21 +243,32 @@ Completed season data should generally be treated as static. After a successful 
 
 ## Normalized Local Database
 
-The backend now runs schema migrations against the same local SQLite-compatible file used by the response cache. The normalized layer sits beside the existing cache instead of replacing it.
+The backend runs schema migrations against the local SQLite-compatible file used by the response cache. The normalized layer sits beside the existing cache instead of replacing it.
 
-Current normalized tables:
+Current normalized tables (19, across 2 migrations):
 
-- `provider_requests`
-- `leagues`
-- `league_seasons`
-- `venues`
-- `teams`
-- `fixtures`
-- `fixture_teams`
-- `odds_events`
-- `odds_snapshots`
-- `opportunities`
-- `opportunity_snapshots`
+**Migration 001** (11 tables):
+- `schema_migrations` -- migration tracking
+- `provider_requests` -- provider API call audit log
+- `leagues` -- league reference data
+- `league_seasons` -- season coverage per league
+- `venues` -- stadium/venue reference
+- `teams` -- team reference data
+- `fixtures` -- fixture records
+- `fixture_teams` -- fixture-team join table
+- `odds_events` -- The Odds API event mapping
+- `odds_snapshots` -- individual odds snapshots (append-only)
+- `opportunities` -- identified betting opportunities
+
+**Migration 002** (8 tables):
+- `opportunity_snapshots` -- model vs market at a point in time
+- `season_data_status` -- research data quality tracking
+- `league_standings` -- league table records
+- `league_player_rankings` -- top scorers/assists per league-season
+- `team_season_statistics` -- team-level season stats
+- `team_season_players` -- player season stats per team
+- `team_transfers` -- transfer records
+- `fixture_lineups` -- confirmed lineups per fixture
 
 Current write path:
 
