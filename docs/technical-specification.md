@@ -87,6 +87,7 @@ server/
     teamDossierService.ts
   sync/
     fixtureSnapshotSync.ts
+    oddsSnapshotSync.ts
   audit/
     auditDb.ts
     fieldPathExtractor.ts
@@ -166,6 +167,14 @@ Behaviour:
 - Fetches API-Football fixture detail where available.
 - Fetches head-to-heads for API-Football fixtures.
 - Returns mock fixture details for unsupported/mock IDs.
+
+### `GET /api/fixtures/:id/odds-movement`
+
+Returns normalized odds movement rows for a fixture from `odds_snapshots`.
+
+Each row contains bookmaker, market, outcome, first observed price, latest observed price, price change, first/latest capture timestamps, snapshot count, and provider last-update metadata.
+
+This endpoint is currently a developer/read-model endpoint. It is intended to power future Assistant edge-decay UI.
 
 ### `GET /api/teams/:id/dossier`
 
@@ -253,8 +262,9 @@ Current write path:
 1. Backend startup initializes `SqliteCache`.
 2. `runMigrations(cache)` creates any missing normalized tables.
 3. `LiveFixtureService` keeps returning fixtures through the existing cache/provider path.
-4. After fixture list/detail reads, `FixtureSnapshotSync` writes normalized league, season, venue, team, fixture, attached odds, and best-opportunity snapshot records.
-5. `ProviderRequestsRepository` records fixture service calls.
+4. During live fixture refreshes, `OddsSnapshotSync` writes raw The Odds API bookmaker events into `odds_events` and `odds_snapshots`.
+5. After fixture list/detail reads, `FixtureSnapshotSync` writes normalized league, season, venue, team, fixture, attached odds, and best-opportunity snapshot records.
+6. `ProviderRequestsRepository` records fixture service calls.
 
 Current read path:
 
@@ -263,7 +273,7 @@ Current read path:
 
 Next read-path target:
 
-- Add repository-backed service methods for odds movement, opportunity history, saved opportunities, and model audit views.
+- Add UI surfaces for odds movement, opportunity history, saved opportunities, and model audit views.
 
 ## Provider Configuration
 
