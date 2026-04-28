@@ -37,12 +37,13 @@ export class TeamDossierService {
     if (isCompletedSeason(season)) {
       const archived = this.deps.cache.getHistoricalArchive<TeamDossier>(archiveKey);
       if (archived) {
+        this.deps.seasonResearch?.upsertTeamDossier(archived);
         return { value: archived, source: "archive" as const };
       }
     }
 
     const result = await this.deps.cache.getOrSet(
-      `team-dossier:v7:${league}:${season}:${teamId}`,
+      `team-dossier:v8:${league}:${season}:${teamId}`,
       teamDossierTtl(season),
       () => this.fetchTeamDossier(teamId, { ...query, league, season })
     );
@@ -222,9 +223,18 @@ async function capture<T>(errors: string[], label: string, run: () => Promise<T>
   try {
     return await run();
   } catch (error) {
+    if (isTransientProviderError(error)) {
+      throw error;
+    }
+
     errors.push(`${label} unavailable${error instanceof Error ? `: ${error.message}` : ""}`);
     return undefined;
   }
+}
+
+function isTransientProviderError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes("429") || error.message.toLowerCase().includes("rate limit");
 }
 
 function mapRecentFixture(fixture: ApiFootballFixtureSummary): TeamDossier["recentFixtures"][number] {

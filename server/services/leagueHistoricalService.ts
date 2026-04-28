@@ -36,12 +36,13 @@ export class LeagueHistoricalService {
     if (isCompletedSeason(season)) {
       const archived = this.deps.cache.getHistoricalArchive<LeagueHistoricalDossier>(archiveKey);
       if (archived) {
+        this.deps.seasonResearch?.upsertLeagueHistoricalDossier(archived);
         return { value: archived, source: "archive" as const };
       }
     }
 
     const result = await this.deps.cache.getOrSet(
-      `league-historical:v2:${league}:${season}`,
+      `league-historical:v3:${league}:${season}`,
       leagueHistoricalTtl(season),
       () => this.fetchHistoricalDossier(league, season)
     );
@@ -128,9 +129,18 @@ async function capture<T>(errors: string[], label: string, run: () => Promise<T>
   try {
     return await run();
   } catch (error) {
+    if (isTransientProviderError(error)) {
+      throw error;
+    }
+
     errors.push(`${label} unavailable${error instanceof Error ? `: ${error.message}` : ""}`);
     return undefined;
   }
+}
+
+function isTransientProviderError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes("429") || error.message.toLowerCase().includes("rate limit");
 }
 
 function mapCoverage(record: ApiFootballLeagueRecord | undefined, season: number): LeagueHistoricalDossier["coverage"] {

@@ -4,6 +4,57 @@ import type { DatabaseConnection } from "../db/types";
 export class SeasonResearchRepository {
   constructor(private readonly db: DatabaseConnection) {}
 
+  getLeagueSeasonSummary(league: number | string, season: number) {
+    const leagueId = String(league);
+    const [status] = this.db.query<{
+      source: string;
+      completeness: string;
+      missing_data_json: string | null;
+      errors_json: string | null;
+      refreshed_at: string;
+    }>(
+      `SELECT source, completeness, missing_data_json, errors_json, refreshed_at
+      FROM season_data_status
+      WHERE entity_type = 'league' AND entity_id = ? AND league_id = ? AND season = ?`,
+      [leagueId, leagueId, season]
+    );
+
+    return {
+      leagueId,
+      season,
+      status: status
+        ? {
+            source: status.source,
+            completeness: status.completeness,
+            missingData: parseJsonArray(status.missing_data_json),
+            errors: parseJsonArray(status.errors_json),
+            refreshedAt: status.refreshed_at
+          }
+        : undefined,
+      counts: {
+        standings: this.count("league_standings", "league_id = ? AND season = ?", [leagueId, season]),
+        topScorers: this.count("league_player_rankings", "league_id = ? AND season = ? AND ranking_type = ?", [
+          leagueId,
+          season,
+          "top_scorers"
+        ]),
+        topAssists: this.count("league_player_rankings", "league_id = ? AND season = ? AND ranking_type = ?", [
+          leagueId,
+          season,
+          "top_assists"
+        ]),
+        teamStatuses: this.count("season_data_status", "entity_type = ? AND league_id = ? AND season = ?", ["team", leagueId, season]),
+        teamStatistics: this.count("team_season_statistics", "league_id = ? AND season = ?", [leagueId, season]),
+        squadPlayers: this.count("team_season_players", "league_id = ? AND season = ?", [leagueId, season]),
+        transfers: this.count("team_transfers", "season = ?", [season]),
+        lineups: this.count("fixture_lineups", "fixture_id IN (SELECT CAST(provider_fixture_id AS TEXT) FROM fixtures WHERE league_id = ? AND season = ?)", [
+          leagueId,
+          season
+        ])
+      }
+    };
+  }
+
   upsertLeagueHistoricalDossier(dossier: LeagueHistoricalDossier) {
     const now = Date.now();
     const leagueId = String(dossier.league.id);
@@ -253,5 +304,20 @@ export class SeasonResearchRepository {
         now
       ]
     );
+  }
+
+  private count(table: string, where: string, params: Array<string | number>) {
+    const [row] = this.db.query<{ count: number }>(`SELECT COUNT(*) as count FROM ${table} WHERE ${where}`, params);
+    return row?.count ?? 0;
+  }
+}
+
+function parseJsonArray(value: string | null) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
   }
 }
