@@ -10,7 +10,7 @@ import { formatKickoffTime } from "../../utils/formatting";
 import { buildBetThesis, type BetThesis, type BetVerdictStatus } from "./thesis";
 
 type OpportunityStatus = "candidate" | "watch" | "no_edge" | "stale";
-type OpportunityFilter = "all" | "today" | "next24" | "weekend" | "following" | "high_confidence";
+type OpportunityFilter = "all" | "today" | "next24" | "weekend" | "following" | "positive_edge";
 
 interface OpportunitySummary {
   id: string;
@@ -188,7 +188,7 @@ function matchesOpportunityFilter(
   if (filter === "next24") return matchesDateWindow(opportunity.fixture, "next24");
   if (filter === "weekend") return matchesDateWindow(opportunity.fixture, "weekend");
   if (filter === "following") return isFixtureFollowed(opportunity.fixture, followedTeamIds, followedLeagues);
-  if (filter === "high_confidence") return opportunity.confidence === "High";
+  if (filter === "positive_edge") return opportunity.edge > 0;
   return true;
 }
 
@@ -198,5 +198,5 @@ const OPPORTUNITY_FILTERS: Array<{ label: string; value: OpportunityFilter }> = 
   { label: "24h", value: "next24" },
   { label: "Weekend", value: "weekend" },
   { label: "Following", value: "following" },
-  { label: "High confidence", value: "high_confidence" }
+  { label: "Positive edge", value: "positive_edge" }
 ];
