@@ -368,6 +368,7 @@ export function ResearchHubWorkspace({
               <TeamDetail
                 summary={selectedTeam}
                 followed={followedTeamIds.has(selectedTeam.team.id)}
+                statsMode={statsMode}
                 selectedSeason={selectedSeason}
                 onToggleFollow={() => onToggleTeam(selectedTeam.team)}
               />
@@ -395,6 +396,7 @@ export function ResearchHubWorkspace({
             <TeamDetail
               summary={selectedTeam}
               followed={followedTeamIds.has(selectedTeam.team.id)}
+              statsMode={statsMode}
               selectedSeason={selectedSeason}
               onToggleFollow={() => onToggleTeam(selectedTeam.team)}
               onOpenFixtureInAssistant={onOpenFixtureInAssistant}
@@ -491,9 +493,16 @@ function HistoricalLeagueDetail({
         </Panel>
 
         <CoveragePanel
-          title="Coverage / Data Availability"
+          title="Provider Endpoint Coverage"
           items={coverageItems}
-          empty="Coverage data is not available for this league-season yet."
+          enabledLabel="Supported"
+          disabledLabel="Not supported"
+          intro={
+            dossier
+              ? "This shows what API-Football says can exist for this league-season. It does not mean we successfully loaded every endpoint today."
+              : undefined
+          }
+          empty="Provider coverage metadata is not available for this league-season yet."
         />
       </section>
     </>
@@ -683,19 +692,26 @@ function LeagueDetail({
 function CoveragePanel({
   title,
   items,
+  intro,
+  enabledLabel = "Available",
+  disabledLabel = "Unavailable",
   empty
 }: {
   title: string;
   items: CoverageItem[];
+  intro?: string;
+  enabledLabel?: string;
+  disabledLabel?: string;
   empty?: string;
 }) {
   return (
     <Panel title={title} icon={<Database size={18} />} wide>
+      {intro ? <p className="panel-intro">{intro}</p> : null}
       {items.length ? (
         <div className="coverage-grid">
           {items.map((item) => (
             <div className={item.enabled ? "coverage-item is-on" : "coverage-item"} key={item.label}>
-              <strong>{item.enabled ? "Available" : "Unavailable"}</strong>
+              <strong>{item.enabled ? enabledLabel : disabledLabel}</strong>
               <span>{item.label}</span>
               {item.note ? <small>{item.note}</small> : null}
             </div>
@@ -711,12 +727,14 @@ function CoveragePanel({
 function TeamDetail({
   summary,
   followed,
+  statsMode,
   selectedSeason,
   onToggleFollow,
   onOpenFixtureInAssistant
 }: {
   summary: TeamSummary;
   followed: boolean;
+  statsMode: StatsMode;
   selectedSeason: number;
   onToggleFollow: () => void;
   onOpenFixtureInAssistant?: (fixtureId: string) => void;
@@ -725,9 +743,11 @@ function TeamDetail({
   const [activeTab, setActiveTab] = React.useState<TeamInsightTab>("overview");
   const [dossier, setDossier] = React.useState<TeamDossier | undefined>();
   const [dossierLoading, setDossierLoading] = React.useState(false);
+  const [dossierError, setDossierError] = React.useState<string | undefined>();
   const probableFormation = estimateFormation(team.players);
   const clubProfile = findClubProfile(team.id, team.name);
   const apiTeamId = getApiFootballTeamId(team, clubProfile);
+  const shouldFetchDossier = Boolean(apiTeamId) && (statsMode === "current" || activeTab !== "overview");
   const crestUrl = getTeamLogoUrl(team);
   const squadPlayers = dossier?.squad.length ? dossier.squad : undefined;
   const likelyStarters = team.players.filter((player) => player.startsLikely);
@@ -735,19 +755,24 @@ function TeamDetail({
   const stadiumImageUrl = dossier?.venue?.image ?? getStadiumImageUrl(summary);
 
   React.useEffect(() => {
-    if (!apiTeamId) {
+    if (!shouldFetchDossier || !apiTeamId) {
       setDossier(undefined);
+      setDossierLoading(false);
+      setDossierError(undefined);
       return;
     }
 
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20000);
     setDossierLoading(true);
+    setDossierError(undefined);
     const params = new URLSearchParams({
       name: team.name,
       season: String(selectedSeason)
     });
 
-    fetch(`/api/teams/${apiTeamId}/dossier?${params.toString()}`)
+    fetch(`/api/teams/${apiTeamId}/dossier?${params.toString()}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error(`Team dossier request failed: ${response.status}`);
         return response.json() as Promise<TeamDossier>;
@@ -757,16 +782,22 @@ function TeamDetail({
       })
       .catch((error) => {
         console.warn("Team dossier request failed", error);
-        if (!cancelled) setDossier(undefined);
+        if (!cancelled) {
+          setDossier(undefined);
+          setDossierError(error instanceof Error && error.name === "AbortError" ? "Team dossier request timed out." : error instanceof Error ? error.message : "Team dossier request failed.");
+        }
       })
       .finally(() => {
+        window.clearTimeout(timeout);
         if (!cancelled) setDossierLoading(false);
       });
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
-  }, [apiTeamId, selectedSeason, team.name]);
+  }, [apiTeamId, selectedSeason, shouldFetchDossier, team.name]);
 
   return (
     <>
@@ -886,13 +917,21 @@ function TeamDetail({
             <Panel title="Data Status" icon={<Database size={18} />}>
               <div className="data-requirements">
                 <div>
-                  <strong>{dossierLoading ? "Loading live dossier" : dossier?.dataStatus.source ?? "Fixture snapshot"}</strong>
+                  <strong>
+                    {dossierLoading
+                      ? "Loading team dossier"
+                      : dossier?.dataStatus.source ?? (statsMode === "historical" ? "Historical summary" : "Fixture snapshot")}
+                  </strong>
                   <span>
                     {dossier
                       ? `Requested ${formatSeasonLabel(dossier.dataStatus.requestedSeason ?? selectedSeason)}. Resolved ${formatSeasonLabel(dossier.dataStatus.resolvedSeason ?? dossier.dataStatus.season)}, ${dossier.dataStatus.completeness ?? "partial"} coverage, refreshed ${formatDateTime(dossier.dataStatus.refreshedAt)}.`
-                      : apiTeamId
-                        ? "Waiting for cached API-Football team dossier."
-                        : "No numeric API-Football team id available for this team yet."}
+                      : dossierError
+                        ? dossierError
+                        : statsMode === "historical" && activeTab === "overview"
+                          ? "Using the league-season table/ranking summary. Open a deeper tab to load the full team dossier."
+                          : apiTeamId
+                            ? "Waiting for cached API-Football team dossier."
+                            : "No numeric API-Football team id available for this team yet."}
                   </span>
                 </div>
                 {dossier?.dataStatus.fallbackSeasonUsed ? (

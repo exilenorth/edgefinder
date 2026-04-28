@@ -1160,6 +1160,12 @@ button {
   gap: 10px;
 }
 
+.panel-intro {
+  margin: 0 0 14px;
+  color: #667789;
+  line-height: 1.45;
+}
+
 .coverage-item {
   border: 1px solid #e2e7ec;
   border-radius: 8px;
