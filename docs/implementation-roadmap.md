@@ -43,6 +43,8 @@ The app should help users think better. It should not behave like a tipster feed
 - Historical archive path for completed seasons.
 - Normalized local database schema foundation.
 - First fixture snapshot sync into normalized leagues, seasons, teams, venues, fixtures, odds snapshots, and opportunity snapshots.
+- Raw The Odds API event snapshots are written to normalized odds tables during live refreshes.
+- Fixture odds movement read endpoint exists for future edge-decay UI.
 - Assistant/Research cross-linking.
 - URL-backed navigation and in-app Back button.
 
@@ -179,11 +181,12 @@ First repositories now added:
 First sync service now added:
 
 - `server/sync/fixtureSnapshotSync.ts`
+- `server/sync/oddsSnapshotSync.ts`
 
 Remaining next work:
 
-- Store raw The Odds API bookmaker event payloads directly, not only attached fixture market odds.
-- Add repository-backed service methods for opportunity history and odds movement.
+- Add Assistant UI for odds movement and edge decay.
+- Add repository-backed service methods for opportunity history.
 - Add saved opportunities/shortlist tables and write paths.
 - Add model audit records beyond the first opportunity snapshot input summary.
 - Add tests for migrations, repository upserts, and odds snapshot append behaviour.

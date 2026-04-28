@@ -3,11 +3,13 @@ import { SqliteCache } from "./cache/sqliteCache";
 import { serverConfig } from "./config";
 import { runMigrations } from "./db/migrations";
 import { DomainStatsRepository } from "./repositories/domainStatsRepository";
+import { OddsRepository } from "./repositories/oddsRepository";
 import { ProviderRequestsRepository } from "./repositories/providerRequestsRepository";
 import { LeagueHistoricalService } from "./services/leagueHistoricalService";
 import { LiveFixtureService } from "./services/liveFixtureService";
 import { TeamDossierService } from "./services/teamDossierService";
 import { FixtureSnapshotSync } from "./sync/fixtureSnapshotSync";
+import { OddsSnapshotSync } from "./sync/oddsSnapshotSync";
 
 const app = express();
 const cache = new SqliteCache(serverConfig.cacheDbPath);
@@ -15,11 +17,13 @@ await cache.init();
 runMigrations(cache);
 
 const fixtureSync = new FixtureSnapshotSync(cache);
+const oddsSync = new OddsSnapshotSync(cache);
 const providerRequests = new ProviderRequestsRepository(cache);
-const fixtures = new LiveFixtureService({ cache, fixtureSync, providerRequests });
+const fixtures = new LiveFixtureService({ cache, fixtureSync, oddsSync, providerRequests });
 const teams = new TeamDossierService({ cache });
 const leagues = new LeagueHistoricalService({ cache });
 const domainStats = new DomainStatsRepository(cache);
+const oddsRepository = new OddsRepository(cache);
 
 app.use(express.json());
 
@@ -60,6 +64,17 @@ app.get("/api/fixtures/:id", async (request, response, next) => {
 
     response.setHeader("x-edgefinder-cache", result.source);
     response.json(result.value);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/fixtures/:id/odds-movement", (request, response, next) => {
+  try {
+    response.json({
+      fixtureId: request.params.id,
+      markets: oddsRepository.listFixtureOddsMovement(request.params.id)
+    });
   } catch (error) {
     next(error);
   }

@@ -131,5 +131,61 @@ export class OddsRepository {
       );
     });
   }
+
+  listFixtureOddsMovement(fixtureId: string) {
+    const rows = this.db.query<OddsSnapshotRow>(
+      `SELECT
+         bookmaker_key,
+         bookmaker_title,
+         market_key,
+         outcome_name,
+         outcome_point,
+         price,
+         last_update,
+         captured_at
+       FROM odds_snapshots
+       WHERE fixture_id = ?
+       ORDER BY market_key, outcome_name, bookmaker_key, captured_at ASC`,
+      [fixtureId]
+    );
+
+    const grouped = new Map<string, OddsSnapshotRow[]>();
+    rows.forEach((row) => {
+      const key = [row.bookmaker_key, row.market_key, row.outcome_name, row.outcome_point ?? "none"].join(":");
+      grouped.set(key, [...(grouped.get(key) ?? []), row]);
+    });
+
+    return Array.from(grouped.values())
+      .map((snapshots) => {
+        const first = snapshots[0];
+        const latest = snapshots[snapshots.length - 1];
+        return {
+          bookmakerKey: latest.bookmaker_key,
+          bookmakerTitle: latest.bookmaker_title,
+          marketKey: latest.market_key,
+          outcomeName: latest.outcome_name,
+          outcomePoint: latest.outcome_point,
+          firstPrice: first.price,
+          latestPrice: latest.price,
+          priceChange: Number((latest.price - first.price).toFixed(4)),
+          firstCapturedAt: first.captured_at,
+          latestCapturedAt: latest.captured_at,
+          snapshotCount: snapshots.length,
+          lastUpdate: latest.last_update
+        };
+      })
+      .sort((first, second) => first.marketKey.localeCompare(second.marketKey) || first.outcomeName.localeCompare(second.outcomeName));
+  }
+}
+
+interface OddsSnapshotRow extends Record<string, unknown> {
+  bookmaker_key: string;
+  bookmaker_title: string | null;
+  market_key: string;
+  outcome_name: string;
+  outcome_point: number | null;
+  price: number;
+  last_update: string | null;
+  captured_at: number;
 }
 

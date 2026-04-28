@@ -14,6 +14,9 @@ interface FixtureServiceDeps {
   fixtureSync?: {
     syncFixtures(fixtures: Fixture[], source?: "live" | "cache" | "mock"): void;
   };
+  oddsSync?: {
+    syncOddsEvents(events: OddsApiEvent[], fixtures: Fixture[], capturedAt?: number): void;
+  };
   providerRequests?: {
     record(request: {
       provider: string;
@@ -63,10 +66,14 @@ export class LiveFixtureService {
 
           const oddsEvents = oddsEnvelope.data;
           if (fixtureEnvelope.response.length === 0) {
-            return oddsEvents.length > 0 ? oddsEvents.map(mapOddsEventFixture) : mockProvider.listFixtures();
+            const mapped = oddsEvents.length > 0 ? oddsEvents.map(mapOddsEventFixture) : await mockProvider.listFixtures();
+            this.deps.oddsSync?.syncOddsEvents(oddsEvents, mapped);
+            return mapped;
           }
 
-          return fixtureEnvelope.response.map((fixture) => mapFixture(fixture, matchOddsEvent(fixture, oddsEvents)));
+          const mapped = fixtureEnvelope.response.map((fixture) => mapFixture(fixture, matchOddsEvent(fixture, oddsEvents)));
+          this.deps.oddsSync?.syncOddsEvents(oddsEvents, mapped);
+          return mapped;
         } catch (error) {
           console.warn("Live fixture fetch failed; falling back to mock fixtures", error);
           return mockProvider.listFixtures();
@@ -115,6 +122,9 @@ export class LiveFixtureService {
         : undefined;
 
       const mapped = mapFixture(fixture, oddsEnvelope ? matchOddsEvent(fixture, oddsEnvelope.data) : undefined);
+      if (oddsEnvelope) {
+        this.deps.oddsSync?.syncOddsEvents(oddsEnvelope.data, [mapped]);
+      }
       mapped.headToHead = await this.getHeadToHead(fixture);
       return mapped;
     });
