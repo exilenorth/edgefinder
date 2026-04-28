@@ -11,7 +11,14 @@ const DOMAIN_TABLES = [
   "odds_events",
   "odds_snapshots",
   "opportunities",
-  "opportunity_snapshots"
+  "opportunity_snapshots",
+  "season_data_status",
+  "league_standings",
+  "league_player_rankings",
+  "team_season_statistics",
+  "team_season_players",
+  "team_transfers",
+  "fixture_lineups"
 ] as const;
 
 export class DomainStatsRepository {

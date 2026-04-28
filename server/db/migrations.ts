@@ -173,6 +173,132 @@ const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS idx_opportunity_snapshots_fixture
         ON opportunity_snapshots (fixture_id, captured_at)`
     ]
+  },
+  {
+    id: "002_season_research_data",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS season_data_status (
+        id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        league_id TEXT,
+        season INTEGER NOT NULL,
+        requested_season INTEGER NOT NULL,
+        resolved_season INTEGER NOT NULL,
+        fallback_season_used INTEGER NOT NULL DEFAULT 0,
+        source TEXT NOT NULL,
+        completeness TEXT NOT NULL,
+        missing_data_json TEXT,
+        errors_json TEXT,
+        archive_eligible INTEGER NOT NULL DEFAULT 0,
+        refreshed_at TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_season_data_status_entity
+        ON season_data_status (entity_type, entity_id, league_id, season)` ,
+      `CREATE TABLE IF NOT EXISTS league_standings (
+        id TEXT PRIMARY KEY,
+        league_id TEXT NOT NULL,
+        season INTEGER NOT NULL,
+        rank INTEGER NOT NULL,
+        team_id TEXT NOT NULL,
+        team_name TEXT NOT NULL,
+        team_logo_url TEXT,
+        played INTEGER,
+        wins INTEGER,
+        draws INTEGER,
+        losses INTEGER,
+        goals_for INTEGER,
+        goals_against INTEGER,
+        goal_difference INTEGER,
+        points INTEGER,
+        form TEXT,
+        source_json TEXT,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_league_standings_team
+        ON league_standings (league_id, season, team_id)` ,
+      `CREATE INDEX IF NOT EXISTS idx_league_standings_rank
+        ON league_standings (league_id, season, rank)` ,
+      `CREATE TABLE IF NOT EXISTS league_player_rankings (
+        id TEXT PRIMARY KEY,
+        league_id TEXT NOT NULL,
+        season INTEGER NOT NULL,
+        ranking_type TEXT NOT NULL,
+        rank INTEGER NOT NULL,
+        player_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        player_photo_url TEXT,
+        team_id TEXT,
+        team_name TEXT,
+        goals INTEGER,
+        assists INTEGER,
+        appearances INTEGER,
+        minutes INTEGER,
+        source_json TEXT,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_league_player_rankings_player
+        ON league_player_rankings (league_id, season, ranking_type, player_id)` ,
+      `CREATE INDEX IF NOT EXISTS idx_league_player_rankings_rank
+        ON league_player_rankings (league_id, season, ranking_type, rank)` ,
+      `CREATE TABLE IF NOT EXISTS team_season_statistics (
+        id TEXT PRIMARY KEY,
+        team_id TEXT NOT NULL,
+        league_id TEXT NOT NULL,
+        season INTEGER NOT NULL,
+        statistics_json TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_team_season_statistics_team
+        ON team_season_statistics (team_id, league_id, season)` ,
+      `CREATE TABLE IF NOT EXISTS team_season_players (
+        id TEXT PRIMARY KEY,
+        team_id TEXT NOT NULL,
+        league_id TEXT NOT NULL,
+        season INTEGER NOT NULL,
+        player_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        age INTEGER,
+        number INTEGER,
+        position TEXT,
+        photo_url TEXT,
+        appearances INTEGER,
+        lineups INTEGER,
+        minutes INTEGER,
+        goals INTEGER,
+        assists INTEGER,
+        source_json TEXT,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_team_season_players_player
+        ON team_season_players (team_id, league_id, season, player_id)` ,
+      `CREATE TABLE IF NOT EXISTS team_transfers (
+        id TEXT PRIMARY KEY,
+        team_id TEXT NOT NULL,
+        season INTEGER NOT NULL,
+        player_name TEXT NOT NULL,
+        transfer_date TEXT,
+        transfer_type TEXT,
+        in_team_name TEXT,
+        out_team_name TEXT,
+        direction TEXT NOT NULL,
+        source_json TEXT,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_team_transfers_team_season
+        ON team_transfers (team_id, season, transfer_date)` ,
+      `CREATE TABLE IF NOT EXISTS fixture_lineups (
+        id TEXT PRIMARY KEY,
+        fixture_id TEXT NOT NULL,
+        team_id TEXT NOT NULL,
+        formation TEXT,
+        lineup_json TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_fixture_lineups_fixture_team
+        ON fixture_lineups (fixture_id, team_id)`
+    ]
   }
 ];
 

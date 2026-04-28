@@ -889,12 +889,24 @@ function TeamDetail({
                   <strong>{dossierLoading ? "Loading live dossier" : dossier?.dataStatus.source ?? "Fixture snapshot"}</strong>
                   <span>
                     {dossier
-                      ? `Requested ${formatSeasonLabel(selectedSeason)}. API-Football returned ${formatSeasonLabel(dossier.dataStatus.season)}, refreshed ${formatDateTime(dossier.dataStatus.refreshedAt)}.`
+                      ? `Requested ${formatSeasonLabel(dossier.dataStatus.requestedSeason ?? selectedSeason)}. Resolved ${formatSeasonLabel(dossier.dataStatus.resolvedSeason ?? dossier.dataStatus.season)}, ${dossier.dataStatus.completeness ?? "partial"} coverage, refreshed ${formatDateTime(dossier.dataStatus.refreshedAt)}.`
                       : apiTeamId
                         ? "Waiting for cached API-Football team dossier."
                         : "No numeric API-Football team id available for this team yet."}
                   </span>
                 </div>
+                {dossier?.dataStatus.fallbackSeasonUsed ? (
+                  <div>
+                    <strong>Season fallback used</strong>
+                    <span>This dossier includes another season because the requested season was unavailable.</span>
+                  </div>
+                ) : null}
+                {dossier?.dataStatus.missingData?.length ? (
+                  <div>
+                    <strong>Missing data</strong>
+                    <span>{dossier.dataStatus.missingData.slice(0, 5).join(", ")}</span>
+                  </div>
+                ) : null}
                 {dossier?.dataStatus.errors.slice(0, 2).map((error) => (
                   <div key={error}>
                     <strong>Partial data</strong>
@@ -1419,7 +1431,7 @@ function formatSeasonLabel(season: number) {
 
 function getCurrentCoverageItems(): CoverageItem[] {
   return [
-    { label: "Fixtures", enabled: true, note: "Loaded through provider/cache fallback." },
+    { label: "Fixtures", enabled: true, note: "Loaded for the selected season only; stale season substitution is blocked." },
     { label: "Teams", enabled: true, note: "Current EPL roster is normalised locally." },
     { label: "Standings", enabled: false, note: "Requires plan-supported current-season API-Football coverage." },
     { label: "Lineups", enabled: false, note: "Planned via `/fixtures/lineups` once available." },
