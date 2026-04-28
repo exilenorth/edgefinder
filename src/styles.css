@@ -1954,3 +1954,700 @@ dd {
     flex-direction: column;
   }
 }
+
+/* Analyst dark polish */
+:root {
+  color-scheme: dark;
+  --bg: #080d12;
+  --bg-soft: #0d141b;
+  --surface: #121b23;
+  --surface-raised: #17222c;
+  --surface-muted: #0f171f;
+  --border: #263542;
+  --border-strong: #354757;
+  --text: #eef4f8;
+  --text-soft: #cad5de;
+  --muted: #90a0ad;
+  --faint: #657684;
+  --accent: #4dd0a6;
+  --accent-strong: #24b889;
+  --accent-soft: rgba(77, 208, 166, 0.13);
+  --warning: #f0c76b;
+  --warning-soft: rgba(240, 199, 107, 0.14);
+  --danger: #ff7b72;
+  --danger-soft: rgba(255, 123, 114, 0.13);
+  --info: #7db7ff;
+  --info-soft: rgba(125, 183, 255, 0.12);
+  --shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(77, 208, 166, 0.08), transparent 34rem),
+    linear-gradient(135deg, #080d12 0%, #101820 54%, #0b1016 100%);
+  color: var(--text);
+}
+
+button,
+input,
+select,
+textarea {
+  color: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(77, 208, 166, 0.25);
+  outline-offset: 3px;
+}
+
+.app-shell {
+  background: transparent;
+}
+
+.fixture-rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: auto;
+  background: linear-gradient(180deg, #101923 0%, #0b1118 100%);
+  border-right: 1px solid var(--border);
+  color: var(--text);
+}
+
+.brand {
+  padding-bottom: 2px;
+}
+
+.brand svg,
+.stats-browser-note svg {
+  color: var(--accent);
+}
+
+.brand strong {
+  font-size: 1.06rem;
+  letter-spacing: 0.01em;
+}
+
+.brand span,
+.rail-section-title,
+.fixture-card span,
+.fixture-card small,
+.stats-rail-card span,
+.watchlist-summary span {
+  color: var(--muted);
+}
+
+.watchlist-summary div,
+.stats-rail-card,
+.filter-tabs,
+.area-tabs button,
+.quick-filters button,
+.league-filter button,
+.fixture-day-toggle,
+.fixture-card {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-soft);
+}
+
+.watchlist-summary strong,
+.stats-rail-card strong,
+.fixture-card strong {
+  color: var(--text);
+}
+
+.filter-tabs,
+.fixture-day-toggle {
+  background: var(--surface-muted);
+}
+
+.filter-tabs button,
+.stats-tabs button,
+.stats-mode-toggle button {
+  color: var(--muted);
+}
+
+.filter-tabs button.is-active,
+.quick-filters button:hover,
+.quick-filters button.is-active,
+.league-filter button:hover,
+.league-filter button.is-active,
+.stats-tabs button.is-active,
+.stats-mode-toggle button.is-active {
+  background: var(--accent);
+  color: #06100d;
+}
+
+.area-tabs button:hover,
+.area-tabs button.is-active,
+.fixture-card:hover,
+.fixture-card.is-selected,
+.stats-browser-item:hover,
+.stats-browser-item.is-selected,
+.ranking-row:hover,
+.linked-fixture-row:hover,
+.detail-tabs button:hover,
+.detail-tabs button.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.fixture-day-toggle small {
+  background: var(--border-strong);
+  color: var(--text);
+}
+
+.workspace {
+  background: transparent;
+  color: var(--text);
+  max-width: 1480px;
+  width: 100%;
+}
+
+.match-header,
+.stats-header {
+  align-items: flex-start;
+}
+
+.match-header p,
+.stats-header p,
+.section-heading p,
+.league-card span,
+.team-card header span,
+.edge-summary span,
+.edge-summary small,
+.meta-row span,
+.edge-dashboard-header div,
+.edge-dashboard-footer,
+.opportunity-head,
+.opportunity-row small,
+.trust-chip,
+.stats-search,
+.season-select,
+.stats-browser-item strong,
+.stats-browser-item small,
+.stats-browser-note,
+.stats-browser-note span,
+.research-mode-note,
+.detail-header p,
+.season-chip,
+.ranking-row span,
+.ranking-row small,
+.standings-head,
+.standings-row span,
+.coverage-item span,
+.coverage-item small,
+.placeholder-panel,
+.detail-fixture-row span,
+.detail-fixture-row small,
+.next-fixture-card span,
+.next-fixture-card small,
+.stats-empty,
+.data-note,
+.formation-card span,
+.formation-card small,
+.manager-card span,
+.manager-card small,
+.stadium-card span,
+.stadium-card small,
+.club-profile-card span,
+.club-profile-card small,
+.lineup-row span,
+.data-requirements span,
+.probability-tile span,
+.probability-tile small,
+.evidence-panel summary small,
+.track-panel p,
+dt,
+.metric span,
+.h2h-row span,
+.h2h-row small,
+.decision-card p,
+.decision-card > div > p:first-of-type,
+.reason-list,
+.scoreline span,
+.table-head,
+.table-row span,
+.note {
+  color: var(--muted);
+}
+
+.match-header h1,
+.stats-header h1 {
+  color: var(--text);
+  font-size: clamp(1.9rem, 4vw, 3.75rem);
+  letter-spacing: 0;
+}
+
+.match-header h1 span {
+  color: var(--faint);
+}
+
+.eyebrow-link {
+  color: var(--muted);
+}
+
+.entity-link,
+.edge-dashboard-header strong,
+.opportunity-empty strong,
+.research-mode-note strong,
+.detail-header h2,
+.decision-card-reasons strong,
+.track-panel h2,
+.panel > header,
+.panel h2,
+.panel h3,
+.opportunity-row,
+.stats-browser-item,
+.ranking-row,
+.lineup-row,
+.data-requirements div,
+.league-card,
+.team-card {
+  color: var(--text);
+}
+
+.eyebrow-link:hover,
+.entity-link:hover {
+  color: var(--accent);
+}
+
+.eyebrow-link:focus-visible,
+.entity-link:focus-visible,
+.linked-fixture-row:focus-visible {
+  outline-color: rgba(77, 208, 166, 0.25);
+}
+
+.meta-row span,
+.edge-summary,
+.edge-dashboard-count,
+.opportunity-row,
+.opportunity-empty,
+.trust-chip,
+.follow-toggle,
+.stats-search,
+.stats-toggle,
+.stats-mode-toggle,
+.season-select,
+.stats-tabs,
+.stats-browser-item,
+.stats-browser-note,
+.research-mode-note,
+.detail-header,
+.season-chip,
+.detail-tabs button,
+.ranking-row,
+.standings-head,
+.standings-row,
+.coverage-item,
+.placeholder-panel,
+.detail-fixture-row,
+.next-fixture-card,
+.stats-empty,
+.data-note,
+.formation-card,
+.manager-card,
+.stadium-card,
+.club-profile-card div,
+.lineup-row,
+.data-requirements div,
+.league-card,
+.team-card,
+.probability-tile,
+.evidence-panel,
+.track-panel,
+.panel,
+.metric,
+.h2h-row,
+.scoreline,
+.table-head,
+.table-row,
+.decision-card-reasons > div {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.panel,
+.edge-summary,
+.edge-dashboard,
+.detail-header,
+.stats-toolbar,
+.stats-centre,
+.track-panel,
+.probability-tile,
+.evidence-panel,
+.league-card,
+.team-card {
+  box-shadow: var(--shadow);
+}
+
+.edge-summary {
+  border-left-color: var(--accent);
+  background: linear-gradient(135deg, rgba(77, 208, 166, 0.12), rgba(18, 27, 35, 0.96));
+}
+
+.meta-row .cache-pill,
+.data-chip.cached,
+.data-chip.live {
+  border-color: rgba(77, 208, 166, 0.55);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.edge-dashboard {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(18, 27, 35, 0.72);
+  padding: 18px;
+}
+
+.edge-dashboard-count,
+.trust-chip,
+.season-chip {
+  background: var(--surface-muted);
+}
+
+.opportunity-filters button {
+  border-color: var(--border);
+  background: var(--surface-raised);
+  color: var(--text-soft);
+}
+
+.opportunity-filters button.is-active,
+.opportunity-filters button:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #06100d;
+}
+
+.opportunity-row {
+  min-height: 76px;
+}
+
+.opportunity-row:hover,
+.opportunity-row.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.opportunity-row:hover small,
+.opportunity-row.is-selected small {
+  color: var(--text-soft);
+}
+
+.opportunity-edge,
+.follow-toggle.is-active svg,
+.stats-toggle.is-active,
+.stats-toggle:hover {
+  color: var(--accent);
+}
+
+.opportunity-status,
+.verdict-badge,
+.data-chip {
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-soft);
+}
+
+.opportunity-status.candidate,
+.verdict-badge.candidate {
+  border-color: rgba(77, 208, 166, 0.58);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.opportunity-status.watch,
+.verdict-badge.watch {
+  border-color: rgba(240, 199, 107, 0.56);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.opportunity-status.stale,
+.opportunity-status.no_edge,
+.verdict-badge.no_edge,
+.data-chip.partial,
+.data-chip.estimated {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.data-chip.unavailable {
+  border-color: rgba(255, 123, 114, 0.58);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.follow-toggle {
+  color: var(--text);
+}
+
+.follow-toggle svg,
+.follow-toggle span {
+  color: var(--muted);
+}
+
+.follow-toggle:hover,
+.follow-toggle.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.stats-toolbar {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(18, 27, 35, 0.68);
+  padding: 12px;
+}
+
+.stats-search input,
+.season-select select {
+  background: transparent;
+  color: var(--text);
+}
+
+.stats-search input::placeholder {
+  color: var(--faint);
+}
+
+.stats-toggle {
+  color: var(--text-soft);
+}
+
+.stats-toggle:hover,
+.stats-toggle.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.stats-browser-list,
+.fixture-rail {
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.research-mode-note {
+  background: var(--info-soft);
+  border-color: rgba(125, 183, 255, 0.34);
+}
+
+.research-mode-note.historical {
+  border-color: rgba(240, 199, 107, 0.45);
+  background: var(--warning-soft);
+}
+
+.standings-head {
+  background: var(--surface-muted);
+}
+
+.coverage-item.is-on,
+.probability-tile.positive,
+.table-row.positive {
+  border-color: rgba(77, 208, 166, 0.58);
+  background: var(--accent-soft);
+}
+
+.stadium-image,
+.person-image {
+  border-color: var(--border);
+  background: var(--surface-muted);
+}
+
+.club-profile-card .club-profile-identity,
+.standings-row {
+  background: var(--surface-raised);
+}
+
+.probability-tile strong,
+.metric strong,
+.edge-summary strong,
+.watchlist-summary strong,
+.stats-rail-card strong,
+dd {
+  font-variant-numeric: tabular-nums;
+}
+
+.probability-tile strong {
+  font-size: clamp(1.55rem, 3vw, 2.15rem);
+}
+
+.evidence-panel summary,
+.panel > header {
+  color: var(--text-soft);
+}
+
+.evidence-panel[open] summary,
+.team-card-footer {
+  border-color: var(--border);
+}
+
+.decision-card {
+  align-items: flex-start;
+}
+
+.decision-card h2 {
+  color: var(--text);
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  line-height: 1.08;
+}
+
+.decision-card-reasons > div {
+  background: var(--surface-raised);
+}
+
+.decision-card-reasons .risk-callout {
+  border-color: rgba(255, 123, 114, 0.45);
+  background: var(--danger-soft);
+}
+
+.reason-list li::marker {
+  color: var(--accent);
+}
+
+.form-badge.w {
+  background: var(--accent-strong);
+}
+
+.form-badge.d {
+  background: var(--faint);
+}
+
+.form-badge.l {
+  background: var(--danger);
+}
+
+.empty-state {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+@media (max-width: 1180px) {
+  .app-shell {
+    grid-template-columns: 290px 1fr;
+  }
+
+  .workspace {
+    padding: 24px;
+  }
+
+  .stats-toolbar {
+    grid-template-columns: minmax(240px, 1fr) auto auto;
+  }
+
+  .season-select {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 980px) {
+  .fixture-rail {
+    position: static;
+    height: auto;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .watchlist-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-browser-list {
+    max-height: 420px;
+  }
+
+  .panel,
+  .edge-summary,
+  .edge-dashboard,
+  .detail-header,
+  .track-panel,
+  .probability-tile,
+  .evidence-panel,
+  .league-card,
+  .team-card {
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    min-width: 0;
+  }
+
+  .fixture-rail,
+  .workspace {
+    padding: 16px;
+  }
+
+  .brand,
+  .match-header,
+  .stats-header,
+  .detail-header,
+  .decision-card,
+  .section-heading {
+    align-items: flex-start;
+  }
+
+  .match-header h1,
+  .stats-header h1 {
+    font-size: clamp(1.7rem, 10vw, 2.55rem);
+  }
+
+  .edge-summary {
+    width: 100%;
+  }
+
+  .opportunity-row,
+  .probability-tile,
+  .panel,
+  .evidence-panel summary,
+  .track-panel,
+  .detail-header,
+  .league-card,
+  .team-card {
+    padding: 14px;
+  }
+
+  .stats-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-mode-toggle,
+  .stats-toggle,
+  .season-select,
+  .back-button {
+    width: 100%;
+  }
+
+  .stats-mode-toggle button {
+    flex: 1;
+    min-height: 38px;
+  }
+
+  .opportunity-signal {
+    align-items: start;
+  }
+
+  .decision-card-reasons {
+    gap: 10px;
+  }
+
+  .table-row,
+  .ranking-row,
+  .detail-fixture-row {
+    gap: 8px;
+  }
+
+  .score-strip,
+  .dashboard-grid,
+  .detail-grid {
+    gap: 10px;
+  }
+}
