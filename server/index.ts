@@ -5,6 +5,8 @@ import { runMigrations } from "./db/migrations";
 import { DomainStatsRepository } from "./repositories/domainStatsRepository";
 import { OddsRepository } from "./repositories/oddsRepository";
 import { ProviderRequestsRepository } from "./repositories/providerRequestsRepository";
+import { SeasonResearchRepository } from "./repositories/seasonResearchRepository";
+import { HistoricalSeasonSyncService } from "./services/historicalSeasonSyncService";
 import { LeagueHistoricalService } from "./services/leagueHistoricalService";
 import { LiveFixtureService } from "./services/liveFixtureService";
 import { TeamDossierService } from "./services/teamDossierService";
@@ -19,9 +21,11 @@ runMigrations(cache);
 const fixtureSync = new FixtureSnapshotSync(cache);
 const oddsSync = new OddsSnapshotSync(cache);
 const providerRequests = new ProviderRequestsRepository(cache);
+const seasonResearch = new SeasonResearchRepository(cache);
 const fixtures = new LiveFixtureService({ cache, fixtureSync, oddsSync, providerRequests });
-const teams = new TeamDossierService({ cache });
-const leagues = new LeagueHistoricalService({ cache });
+const teams = new TeamDossierService({ cache, seasonResearch });
+const leagues = new LeagueHistoricalService({ cache, seasonResearch });
+const historicalSeasonSync = new HistoricalSeasonSyncService({ leagues, teams, seasonResearch });
 const domainStats = new DomainStatsRepository(cache);
 const oddsRepository = new OddsRepository(cache);
 
@@ -42,6 +46,42 @@ app.get("/api/db/summary", (_request, response) => {
     ok: true,
     tables: domainStats.getSummary()
   });
+});
+
+app.get("/api/research/league-season/:league/:season/summary", (request, response, next) => {
+  try {
+    const league = numberParam(request.params.league);
+    const season = numberParam(request.params.season);
+    if (!league || !season) {
+      response.status(400).json({ error: "League and season must be numeric" });
+      return;
+    }
+
+    response.json({
+      ok: true,
+      summary: seasonResearch.getLeagueSeasonSummary(league, season)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/sync/historical-season", async (request, response, next) => {
+  try {
+    const result = await historicalSeasonSync.syncLeagueSeason({
+      league: numberQuery(request.body?.league),
+      season: numberQuery(request.body?.season),
+      includeTeams: typeof request.body?.includeTeams === "boolean" ? request.body.includeTeams : undefined,
+      teamLimit: numberQuery(request.body?.teamLimit)
+    });
+
+    response.json({
+      ok: true,
+      result
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get("/api/fixtures", async (_request, response, next) => {
@@ -129,7 +169,13 @@ app.listen(serverConfig.port, () => {
 });
 
 function numberQuery(value: unknown) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
   if (typeof value !== "string" || value.trim() === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function numberParam(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 }

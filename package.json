@@ -11,6 +11,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "server": "tsx server/index.ts",
     "server:check": "tsc -p tsconfig.server.json",
+    "sync:historical-season": "tsx scripts/sync-historical-season.ts",
     "audit:api-football": "tsx scripts/audit-api-football.ts",
     "audit:odds": "tsx scripts/audit-odds-api.ts"
   },

@@ -126,12 +126,7 @@ export interface TeamDossier {
     startXI: string[];
   }>;
   statistics?: unknown;
-  dataStatus: {
-    source: "live" | "partial" | "unavailable";
-    season: number;
-    errors: string[];
-    refreshedAt: string;
-  };
+  dataStatus: ResearchDataStatus;
 }
 
 export interface LeagueHistoricalDossier {
@@ -191,12 +186,20 @@ export interface LeagueHistoricalDossier {
     appearances?: number;
     minutes?: number;
   }>;
-  dataStatus: {
-    source: "live" | "partial" | "unavailable";
-    season: number;
-    errors: string[];
-    refreshedAt: string;
-  };
+  dataStatus: ResearchDataStatus;
+}
+
+export interface ResearchDataStatus {
+  source: "live" | "partial" | "unavailable";
+  season: number;
+  requestedSeason?: number;
+  resolvedSeason?: number;
+  fallbackSeasonUsed?: boolean;
+  completeness?: "complete" | "partial" | "unavailable";
+  archiveEligible?: boolean;
+  missingData?: string[];
+  errors: string[];
+  refreshedAt: string;
 }
 
 export interface MarketSelection {

@@ -15,6 +15,9 @@ interface TeamDossierServiceDeps {
     getHistoricalArchive<T>(key: string): T | undefined;
     setHistoricalArchive<T>(key: string, kind: string, value: T, completeness: "complete" | "partial"): void;
   };
+  seasonResearch?: {
+    upsertTeamDossier(dossier: TeamDossier): void;
+  };
 }
 
 export class TeamDossierService {
@@ -29,17 +32,18 @@ export class TeamDossierService {
   async getTeamDossier(teamId: number, query: { teamName?: string; league?: number; season?: number }) {
     const league = query.league ?? serverConfig.apiFootballLeagueId;
     const season = query.season ?? serverConfig.apiFootballSeason;
-    const archiveKey = `team:${teamId}:league:${league}:season:${season}`;
+    const archiveKey = `team-season-contract-v1:${teamId}:league:${league}:season:${season}`;
 
     if (isCompletedSeason(season)) {
       const archived = this.deps.cache.getHistoricalArchive<TeamDossier>(archiveKey);
       if (archived) {
+        this.deps.seasonResearch?.upsertTeamDossier(archived);
         return { value: archived, source: "archive" as const };
       }
     }
 
     const result = await this.deps.cache.getOrSet(
-      `team-dossier:v6:${league}:${season}:${teamId}`,
+      `team-dossier:v8:${league}:${season}:${teamId}`,
       teamDossierTtl(season),
       () => this.fetchTeamDossier(teamId, { ...query, league, season })
     );
@@ -48,6 +52,7 @@ export class TeamDossierService {
       const completeness = isCompleteTeamDossier(result.value) ? "complete" : "partial";
       this.deps.cache.setHistoricalArchive(archiveKey, "team-season", result.value, completeness);
     }
+    this.deps.seasonResearch?.upsertTeamDossier(result.value);
 
     return result;
   }
@@ -83,8 +88,18 @@ export class TeamDossierService {
     );
     const recentFixtures = seasonContext.recentFixtures;
 
-    const recentLineups = await this.fetchRecentLineups(teamId, recentFixtures ?? [], errors, seasonContext.season === query.season);
+    const recentLineups = await this.fetchRecentLineups(teamId, recentFixtures ?? [], errors);
     const profileTeam = profile?.team;
+    const missingData = getMissingData({
+      squadCount: squad?.length ?? 0,
+      recentFixtureCount: recentFixtures.length,
+      lineupCount: recentLineups.length,
+      hasStatistics: Boolean(statistics),
+      hasCoach: Boolean(coach),
+      hasVenue: Boolean(profile?.venue)
+    });
+    const source = getSource(errors, Boolean(profile), squad?.length ?? 0, recentFixtures.length);
+    const completeness = source === "unavailable" ? "unavailable" : missingData.length === 0 ? "complete" : "partial";
 
     return {
       team: {
@@ -131,8 +146,14 @@ export class TeamDossierService {
       recentLineups,
       statistics,
       dataStatus: {
-        source: errors.length === 0 ? "live" : profile || squad?.length || recentFixtures.length ? "partial" : "unavailable",
+        source,
         season: seasonContext.season,
+        requestedSeason: query.season,
+        resolvedSeason: seasonContext.season,
+        fallbackSeasonUsed: seasonContext.fallbackSeasonUsed,
+        completeness,
+        archiveEligible: isCompletedSeason(query.season),
+        missingData,
         errors,
         refreshedAt: new Date().toISOString()
       }
@@ -146,30 +167,13 @@ export class TeamDossierService {
         this.football!.listFixtures({ team: teamId, league, season, from: range.from, to: range.to }).then((envelope) => envelope.response)
       )) ?? [];
 
-    if (recentFixtures.length > 0 || season <= 1900) {
-      return { season, recentFixtures };
+    if (recentFixtures.length === 0) {
+      errors.push(
+        `No fixtures returned for requested season ${season}. Older seasons are no longer substituted automatically, so the UI can show this as missing coverage instead of stale data.`
+      );
     }
 
-    for (let fallbackSeason = season - 1; fallbackSeason >= season - 4; fallbackSeason -= 1) {
-      const fallbackRange = getSeasonDateRange(fallbackSeason);
-      const fallbackFixtures =
-        (await capture(errors, `Fallback recent fixtures ${fallbackSeason}`, () =>
-          this.football!.listFixtures({
-            team: teamId,
-            league,
-            season: fallbackSeason,
-            from: fallbackRange.from,
-            to: fallbackRange.to
-          }).then((envelope) => envelope.response)
-        )) ?? [];
-
-      if (fallbackFixtures.length > 0) {
-        return { season: fallbackSeason, recentFixtures: fallbackFixtures };
-      }
-    }
-
-    errors.push(`No recent fixtures returned for seasons ${season}-${season - 4}. This may be plan or coverage related.`);
-    return { season, recentFixtures };
+    return { season, recentFixtures, fallbackSeasonUsed: false };
   }
 
   private async fetchSeasonPlayers(teamId: number, league: number, season: number, errors: string[]) {
@@ -194,9 +198,8 @@ export class TeamDossierService {
     return players;
   }
 
-  private async fetchRecentLineups(teamId: number, fixtures: ApiFootballFixtureSummary[], errors: string[], includeLineups: boolean) {
+  private async fetchRecentLineups(teamId: number, fixtures: ApiFootballFixtureSummary[], errors: string[]) {
     if (!this.football) return [];
-    if (!includeLineups) return [];
 
     const completedFixtures = fixtures
       .filter((fixture) => fixture.goals.home !== null && fixture.goals.away !== null)
@@ -220,9 +223,18 @@ async function capture<T>(errors: string[], label: string, run: () => Promise<T>
   try {
     return await run();
   } catch (error) {
+    if (isTransientProviderError(error)) {
+      throw error;
+    }
+
     errors.push(`${label} unavailable${error instanceof Error ? `: ${error.message}` : ""}`);
     return undefined;
   }
+}
+
+function isTransientProviderError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes("429") || error.message.toLowerCase().includes("rate limit");
 }
 
 function mapRecentFixture(fixture: ApiFootballFixtureSummary): TeamDossier["recentFixtures"][number] {
@@ -330,6 +342,12 @@ function createUnavailableDossier(
     dataStatus: {
       source: "unavailable",
       season,
+      requestedSeason: season,
+      resolvedSeason: season,
+      fallbackSeasonUsed: false,
+      completeness: "unavailable",
+      archiveEligible: isCompletedSeason(season),
+      missingData: ["team profile", "squad", "fixtures", "team statistics", "coach", "venue"],
       errors,
       refreshedAt: new Date().toISOString()
     }
@@ -345,4 +363,27 @@ function getSeasonDateRange(season: number) {
 
 function isCompleteTeamDossier(dossier: TeamDossier) {
   return dossier.squad.length > 0 && dossier.recentFixtures.length > 0;
+}
+
+function getSource(errors: string[], hasProfile: boolean, squadCount: number, recentFixtureCount: number) {
+  if (errors.length === 0) return "live";
+  return hasProfile || squadCount > 0 || recentFixtureCount > 0 ? "partial" : "unavailable";
+}
+
+function getMissingData(input: {
+  squadCount: number;
+  recentFixtureCount: number;
+  lineupCount: number;
+  hasStatistics: boolean;
+  hasCoach: boolean;
+  hasVenue: boolean;
+}) {
+  const missing: string[] = [];
+  if (input.squadCount === 0) missing.push("squad");
+  if (input.recentFixtureCount === 0) missing.push("season fixtures");
+  if (input.lineupCount === 0) missing.push("recent lineups");
+  if (!input.hasStatistics) missing.push("team statistics");
+  if (!input.hasCoach) missing.push("manager");
+  if (!input.hasVenue) missing.push("venue");
+  return missing;
 }

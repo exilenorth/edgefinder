@@ -14,6 +14,9 @@ interface LeagueHistoricalServiceDeps {
     getHistoricalArchive<T>(key: string): T | undefined;
     setHistoricalArchive<T>(key: string, kind: string, value: T, completeness: "complete" | "partial"): void;
   };
+  seasonResearch?: {
+    upsertLeagueHistoricalDossier(dossier: LeagueHistoricalDossier): void;
+  };
 }
 
 export class LeagueHistoricalService {
@@ -28,17 +31,18 @@ export class LeagueHistoricalService {
   async getHistoricalDossier(query: { league?: number; season?: number }) {
     const league = query.league ?? serverConfig.apiFootballLeagueId;
     const season = query.season ?? serverConfig.apiFootballSeason;
-    const archiveKey = `league:${league}:season:${season}`;
+    const archiveKey = `league-season-contract-v1:${league}:season:${season}`;
 
     if (isCompletedSeason(season)) {
       const archived = this.deps.cache.getHistoricalArchive<LeagueHistoricalDossier>(archiveKey);
       if (archived) {
+        this.deps.seasonResearch?.upsertLeagueHistoricalDossier(archived);
         return { value: archived, source: "archive" as const };
       }
     }
 
     const result = await this.deps.cache.getOrSet(
-      `league-historical:v1:${league}:${season}`,
+      `league-historical:v3:${league}:${season}`,
       leagueHistoricalTtl(season),
       () => this.fetchHistoricalDossier(league, season)
     );
@@ -47,6 +51,7 @@ export class LeagueHistoricalService {
       const completeness = isCompleteLeagueHistoricalDossier(result.value) ? "complete" : "partial";
       this.deps.cache.setHistoricalArchive(archiveKey, "league-season", result.value, completeness);
     }
+    this.deps.seasonResearch?.upsertLeagueHistoricalDossier(result.value);
 
     return result;
   }
@@ -68,6 +73,13 @@ export class LeagueHistoricalService {
     const topAssists = await capture(errors, "Top assists", () =>
       this.football!.getTopAssists({ league, season }).then((envelope) => envelope.response)
     );
+    const missingData = getMissingData({
+      standingsCount: standings?.league.standings[0]?.length ?? 0,
+      topScorersCount: topScorers?.length ?? 0,
+      topAssistsCount: topAssists?.length ?? 0,
+      hasCoverage: Boolean(coverage)
+    });
+    const source = getSource(errors, standings?.league.standings[0]?.length ?? 0, topScorers?.length ?? 0, topAssists?.length ?? 0);
 
     return {
       league: {
@@ -81,8 +93,14 @@ export class LeagueHistoricalService {
       topScorers: (topScorers ?? []).slice(0, 20).map(mapTopPlayer),
       topAssists: (topAssists ?? []).slice(0, 20).map(mapTopPlayer),
       dataStatus: {
-        source: errors.length === 0 ? "live" : standings || topScorers?.length || topAssists?.length ? "partial" : "unavailable",
+        source,
         season,
+        requestedSeason: season,
+        resolvedSeason: season,
+        fallbackSeasonUsed: false,
+        completeness: source === "unavailable" ? "unavailable" : missingData.length === 0 ? "complete" : "partial",
+        archiveEligible: isCompletedSeason(season),
+        missingData,
         errors,
         refreshedAt: new Date().toISOString()
       }
@@ -111,9 +129,18 @@ async function capture<T>(errors: string[], label: string, run: () => Promise<T>
   try {
     return await run();
   } catch (error) {
+    if (isTransientProviderError(error)) {
+      throw error;
+    }
+
     errors.push(`${label} unavailable${error instanceof Error ? `: ${error.message}` : ""}`);
     return undefined;
   }
+}
+
+function isTransientProviderError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return error.message.includes("429") || error.message.toLowerCase().includes("rate limit");
 }
 
 function mapCoverage(record: ApiFootballLeagueRecord | undefined, season: number): LeagueHistoricalDossier["coverage"] {
@@ -183,6 +210,12 @@ function createUnavailableDossier(league: number, season: number, errors: string
     dataStatus: {
       source: "unavailable",
       season,
+      requestedSeason: season,
+      resolvedSeason: season,
+      fallbackSeasonUsed: false,
+      completeness: "unavailable",
+      archiveEligible: isCompletedSeason(season),
+      missingData: ["coverage", "standings", "top scorers", "top assists"],
       errors,
       refreshedAt: new Date().toISOString()
     }
@@ -191,4 +224,23 @@ function createUnavailableDossier(league: number, season: number, errors: string
 
 function isCompleteLeagueHistoricalDossier(dossier: LeagueHistoricalDossier) {
   return dossier.standings.length >= 10 && dossier.topScorers.length > 0 && dossier.topAssists.length > 0;
+}
+
+function getSource(errors: string[], standingsCount: number, topScorersCount: number, topAssistsCount: number) {
+  if (errors.length === 0) return "live";
+  return standingsCount > 0 || topScorersCount > 0 || topAssistsCount > 0 ? "partial" : "unavailable";
+}
+
+function getMissingData(input: {
+  standingsCount: number;
+  topScorersCount: number;
+  topAssistsCount: number;
+  hasCoverage: boolean;
+}) {
+  const missing: string[] = [];
+  if (!input.hasCoverage) missing.push("coverage");
+  if (input.standingsCount === 0) missing.push("standings");
+  if (input.topScorersCount === 0) missing.push("top scorers");
+  if (input.topAssistsCount === 0) missing.push("top assists");
+  return missing;
 }
