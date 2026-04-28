@@ -69,11 +69,24 @@ server/
   config.ts
   cache/
     sqliteCache.ts
+  db/
+    migrations.ts
+    types.ts
+  repositories/
+    domainStatsRepository.ts
+    fixturesRepository.ts
+    leaguesRepository.ts
+    oddsRepository.ts
+    opportunitiesRepository.ts
+    providerRequestsRepository.ts
+    teamsRepository.ts
   services/
     liveFixtureService.ts
     leagueHistoricalService.ts
     seasonCachePolicy.ts
     teamDossierService.ts
+  sync/
+    fixtureSnapshotSync.ts
   audit/
     auditDb.ts
     fieldPathExtractor.ts
@@ -121,6 +134,10 @@ The browser URL is updated with `history.pushState` or `history.replaceState`, a
 ### `GET /api/health`
 
 Returns backend health and provider-key configuration flags.
+
+### `GET /api/db/summary`
+
+Returns row counts for the normalized local database tables. This is a developer sanity endpoint for confirming that fixture refreshes are writing leagues, seasons, teams, fixtures, odds snapshots, opportunities, and opportunity snapshots.
 
 ### `GET /api/fixtures`
 
@@ -200,6 +217,7 @@ Current cache layers:
 
 - Frontend IndexedDB cache for UI fetches.
 - Backend SQLite-compatible cache for provider responses and historical archives.
+- Backend normalized tables for domain entities and snapshots.
 
 Current TTL examples:
 
@@ -211,6 +229,41 @@ Current TTL examples:
 Important rule:
 
 Completed season data should generally be treated as static. After a successful provider fetch, it should be archived locally and reused without repeated provider calls unless a manual refresh is explicitly added.
+
+## Normalized Local Database
+
+The backend now runs schema migrations against the same local SQLite-compatible file used by the response cache. The normalized layer sits beside the existing cache instead of replacing it.
+
+Current normalized tables:
+
+- `provider_requests`
+- `leagues`
+- `league_seasons`
+- `venues`
+- `teams`
+- `fixtures`
+- `fixture_teams`
+- `odds_events`
+- `odds_snapshots`
+- `opportunities`
+- `opportunity_snapshots`
+
+Current write path:
+
+1. Backend startup initializes `SqliteCache`.
+2. `runMigrations(cache)` creates any missing normalized tables.
+3. `LiveFixtureService` keeps returning fixtures through the existing cache/provider path.
+4. After fixture list/detail reads, `FixtureSnapshotSync` writes normalized league, season, venue, team, fixture, attached odds, and best-opportunity snapshot records.
+5. `ProviderRequestsRepository` records fixture service calls.
+
+Current read path:
+
+- The UI still reads through the existing `/api/fixtures` and `/api/fixtures/:id` endpoints.
+- The normalized tables are not yet the source of truth for the UI.
+
+Next read-path target:
+
+- Add repository-backed service methods for odds movement, opportunity history, saved opportunities, and model audit views.
 
 ## Provider Configuration
 
@@ -402,6 +455,7 @@ Recommended first automated coverage:
 ## Near-Term Technical Risks
 
 - The response cache is useful, but not enough for odds history or CLV.
+- The normalized database now exists, but most UI reads still use the cache/provider-shaped fixture snapshots.
 - Provider plan limitations can make current-season API-Football data sparse.
 - Current season/team normalisation mixes live data, curated EPL profiles, and estimates; the UI must keep that visible.
 - The model can overstate precision unless data-quality chips and audit output stay prominent.

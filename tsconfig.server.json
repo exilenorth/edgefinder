@@ -15,6 +15,7 @@
     "server/**/*.ts",
     "scripts/**/*.ts",
     "src/types.ts",
+    "src/model/probability.ts",
     "src/providers/apiFootballClient.ts",
     "src/providers/theOddsApiClient.ts",
     "src/providers/mockProvider.ts",
